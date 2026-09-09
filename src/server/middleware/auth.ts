@@ -66,7 +66,7 @@ export const checkTicketAccess = async (req: AuthRequest, res: Response, next: N
     return;
   }
 
-  const ticketId = req.params.id || req.params.ticketId;
+  const ticketId = (req.params.id || req.params.ticketId) as string | undefined;
   if (!ticketId) {
     next();
     return;

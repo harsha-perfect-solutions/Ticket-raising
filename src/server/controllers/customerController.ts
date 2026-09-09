@@ -98,7 +98,7 @@ export async function createCustomer(req: AuthRequest, res: Response): Promise<v
 
 export async function getCustomerById(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const customer = await prisma.customer.findUnique({
       where: { id },
@@ -123,9 +123,10 @@ export async function getCustomerById(req: AuthRequest, res: Response): Promise<
     }
 
     // Calculate customer metrics
-    const totalTickets = customer.tickets.length;
-    const openTickets = customer.tickets.filter((t) => !['CLOSED', 'CANCELLED', 'RESOLVED'].includes(t.status)).length;
-    const resolvedTickets = customer.tickets.filter((t) => ['RESOLVED', 'CLOSED'].includes(t.status)).length;
+    const tickets = (customer as any).tickets || [];
+    const totalTickets = tickets.length;
+    const openTickets = tickets.filter((t: any) => !['CLOSED', 'CANCELLED', 'RESOLVED'].includes(t.status)).length;
+    const resolvedTickets = tickets.filter((t: any) => ['RESOLVED', 'CLOSED'].includes(t.status)).length;
 
     res.json({
       success: true,

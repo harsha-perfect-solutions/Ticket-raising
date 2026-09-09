@@ -111,7 +111,7 @@ export async function listSlaRules(req: AuthRequest, res: Response): Promise<voi
 
 export async function updateSlaRule(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { firstResponseMinutes, resolutionMinutes, warnBeforeMinutes, autoEscalateMinutes, isActive } = req.body;
 
     const rule = await prisma.slaRule.update({

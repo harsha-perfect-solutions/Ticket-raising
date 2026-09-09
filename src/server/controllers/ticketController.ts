@@ -326,7 +326,7 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
 
 export async function getTicketById(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const isCustomer = req.user?.role === 'CUSTOMER';
 
     const ticket = await prisma.ticket.findUnique({
@@ -406,7 +406,7 @@ export async function getTicketById(req: AuthRequest, res: Response): Promise<vo
 
 export async function updateTicketStatus(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status: newStatus, reason, resolutionNotes } = req.body;
 
     const validStatuses = [
@@ -508,7 +508,7 @@ export async function updateTicketStatus(req: AuthRequest, res: Response): Promi
 
 export async function assignTicket(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { assignedAgentId, departmentId, reason } = req.body;
 
     const currentTicket = await prisma.ticket.findUnique({ where: { id } });
@@ -571,7 +571,7 @@ export async function assignTicket(req: AuthRequest, res: Response): Promise<voi
 
 export async function updateTicketPriority(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { priority } = req.body;
 
     const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -628,7 +628,7 @@ export async function updateTicketPriority(req: AuthRequest, res: Response): Pro
 
 export async function escalateTicket(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { reason, targetLevel = 1 } = req.body;
 
     const ticket = await prisma.ticket.findUnique({ where: { id } });
@@ -681,7 +681,7 @@ export async function escalateTicket(req: AuthRequest, res: Response): Promise<v
 
 export async function addMessage(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id: ticketId } = req.params;
+    const ticketId = req.params.id as string;
     const { message } = req.body;
 
     if (!message || !message.trim()) {
@@ -753,7 +753,7 @@ export async function addMessage(req: AuthRequest, res: Response): Promise<void>
 
 export async function addInternalNote(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id: ticketId } = req.params;
+    const ticketId = req.params.id as string;
     const { note } = req.body;
 
     if (!note || !note.trim()) {
@@ -804,7 +804,7 @@ export async function addInternalNote(req: AuthRequest, res: Response): Promise<
 
 export async function submitFeedback(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id: ticketId } = req.params;
+    const ticketId = req.params.id as string;
     const { rating, feedbackText } = req.body;
 
     if (!rating || rating < 1 || rating > 5) {
@@ -850,7 +850,7 @@ export async function submitFeedback(req: AuthRequest, res: Response): Promise<v
 
 export async function uploadAttachment(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id: ticketId } = req.params;
+    const ticketId = req.params.id as string;
     const { messageId, internalNoteId } = req.body;
     const file = req.file;
 

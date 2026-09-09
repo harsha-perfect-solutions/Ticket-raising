@@ -28,7 +28,7 @@ export async function listUserNotifications(req: AuthRequest, res: Response): Pr
 
 export async function markNotificationRead(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user!.userId;
 
     await prisma.notification.updateMany({
