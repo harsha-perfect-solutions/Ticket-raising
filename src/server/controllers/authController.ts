@@ -13,8 +13,9 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const trimmedEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: trimmedEmail },
       include: {
         department: true,
         customerProfile: true,
@@ -22,13 +23,13 @@ export async function login(req: Request, res: Response): Promise<void> {
     });
 
     if (!user || !user.isActive) {
-      res.status(401).json({ success: false, message: 'Invalid credentials or inactive account.' });
+      res.status(401).json({ success: false, message: 'Invalid email or password.' });
       return;
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      res.status(401).json({ success: false, message: 'Invalid credentials.' });
+      res.status(401).json({ success: false, message: 'Invalid email or password.' });
       return;
     }
 
@@ -69,13 +70,50 @@ export async function login(req: Request, res: Response): Promise<void> {
 export async function registerCustomer(req: Request, res: Response): Promise<void> {
   try {
     const { email, password, fullName, phone, company, address } = req.body;
-    if (!email || !password || !fullName || !phone) {
+    const trimmedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+    const trimmedName = typeof fullName === 'string' ? fullName.trim() : '';
+    const trimmedPhone = typeof phone === 'string' ? phone.trim() : '';
+
+    if (!trimmedEmail || !password || !trimmedName || !trimmedPhone) {
       res.status(400).json({ success: false, message: 'Email, password, full name, and phone are required.' });
       return;
     }
 
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
+      return;
+    }
+
+    // Password strength validation
+    if (password.length < 8) {
+      res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+      return;
+    }
+    if (password.length > 128) {
+      res.status(400).json({ success: false, message: 'Password must be 128 characters or fewer.' });
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one uppercase letter.' });
+      return;
+    }
+    if (!/[a-z]/.test(password)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one lowercase letter.' });
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one number.' });
+      return;
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one special character.' });
+      return;
+    }
+
     const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: trimmedEmail },
     });
 
     if (existingUser) {
@@ -88,18 +126,18 @@ export async function registerCustomer(req: Request, res: Response): Promise<voi
 
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase().trim(),
+        email: trimmedEmail,
         passwordHash,
-        fullName,
-        phone,
+        fullName: trimmedName,
+        phone: trimmedPhone,
         role: 'CUSTOMER',
         customerProfile: {
           create: {
-            name: fullName,
-            email: email.toLowerCase().trim(),
-            phone,
-            company: company || null,
-            address: address || null,
+            name: trimmedName,
+            email: trimmedEmail,
+            phone: trimmedPhone,
+            company: company ? company.trim() : null,
+            address: address ? address.trim() : null,
           },
         },
       },

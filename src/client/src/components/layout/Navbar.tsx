@@ -16,14 +16,17 @@ import {
   Home,
   Sliders,
   Layers,
+  PlusCircle,
 } from 'lucide-react';
 import { UserRole } from '../../types';
+import { useNavigate } from 'react-router-dom';
 
 interface NavbarProps {
-  onNavigate: (page: string, ticketId?: string) => void;
+  onNavigate?: (page: string, ticketId?: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const { user, logout, switchDemoRole, demoAccounts } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -31,9 +34,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [navSearch, setNavSearch] = useState('');
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const roleRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -77,25 +93,48 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="Search anything... ⌘K"
             value={navSearch}
             onChange={(e) => setNavSearch(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && navSearch.trim()) {
-                onNavigate('tickets');
+                if (onNavigate) onNavigate('tickets');
+                navigate(`/${currentRole.toLowerCase()}/tickets`);
               }
             }}
             className="w-full pl-10 pr-12 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
           />
-          <span className="absolute right-3 top-2.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-600">
+          <button
+            type="button"
+            onClick={() => {
+              searchInputRef.current?.focus();
+              searchInputRef.current?.select();
+            }}
+            className="absolute right-3 top-2.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors cursor-pointer"
+            title="Press ⌘K or Ctrl+K to focus search"
+          >
             ⌘K
-          </span>
+          </button>
         </div>
       </div>
 
       {/* Center / Right Action Controls */}
       <div className="flex items-center gap-3 ml-auto">
+        {/* Quick Raise Ticket Action */}
+        <button
+          onClick={() => {
+            if (onNavigate) onNavigate('raise-ticket');
+            navigate(`/${currentRole.toLowerCase()}/raise-ticket`);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm"
+          title="Raise a Support Ticket"
+        >
+          <PlusCircle className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Raise Ticket</span>
+        </button>
+
         {/* Quick Demo Persona Switcher */}
         <div className="relative" ref={roleRef}>
           <button
@@ -130,7 +169,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                     onClick={() => {
                       switchDemoRole(role);
                       setShowRoleSwitcher(false);
-                      onNavigate('dashboard');
+                      if (onNavigate) onNavigate('dashboard');
+                      navigate(`/${role.toLowerCase()}/dashboard`);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors ${
                       isActive ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
@@ -194,7 +234,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
                       onClick={() => {
                         markAsRead(n.id);
                         if (n.ticketId) {
-                          onNavigate('ticket-details', n.ticketId);
+                          if (onNavigate) onNavigate('ticket-details', n.ticketId);
+                          navigate(`/${currentRole.toLowerCase()}/tickets/${n.ticketId}`);
                           setShowNotifications(false);
                         }
                       }}
@@ -222,7 +263,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
 
         {/* Home / Help icon */}
         <button
-          onClick={() => onNavigate('dashboard')}
+          onClick={() => {
+            if (onNavigate) onNavigate('dashboard');
+            navigate(`/${currentRole.toLowerCase()}/dashboard`);
+          }}
           className="p-2.5 rounded-xl bg-[#f8fafc] hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors hidden sm:block shadow-sm"
           title="Dashboard Home"
         >

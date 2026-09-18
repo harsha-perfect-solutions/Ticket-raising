@@ -14,10 +14,12 @@ node_modules/
 # SQLite Database & Prisma
 prisma/*.db
 prisma/*.db-journal
+prisma/*.backup
 dev.db
 dev.db-journal
 *.sqlite
 *.sqlite3
+*.backup
 
 # Uploads directory contents
 uploads/*

@@ -204,6 +204,7 @@ export interface Ticket {
   resolvedAt?: string | null;
   closedAt?: string | null;
   resolutionNotes?: string | null;
+  watchers?: string[];
   createdAt: string;
   updatedAt: string;
   messages?: TicketMessage[];
@@ -277,4 +278,34 @@ export interface DashboardStats {
   ticketsByPriority: { priority: string; count: number }[];
   ticketsByDepartment: { name: string; count: number }[];
   ticketsByAgent: { name: string; total: number; resolved: number; inProgress: number }[];
+}
+
+export interface KBArticle {
+  id: string;
+  title: string;
+  summary: string;
+  category: string;
+  tags: string[];
+  readTimeMinutes: number;
+  content: string;
+}
+
+export interface TicketTemplate {
+  id: string;
+  name: string;
+  categoryKeyword: string;
+  subcategoryKeyword?: string;
+  defaultSubject: string;
+  descriptionPrompt: string;
+  priority: TicketPriority;
+}
+
+export interface FileAttachmentItem {
+  id: string;
+  file: File;
+  name: string;
+  size: number;
+  type: string;
+  status: 'pending' | 'uploading' | 'uploaded' | 'failed';
+  error?: string;
 }

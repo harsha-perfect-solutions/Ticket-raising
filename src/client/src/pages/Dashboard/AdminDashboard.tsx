@@ -33,28 +33,53 @@ import {
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminDashboardProps {
-  onNavigate: (page: string, ticketId?: string) => void;
-  onOpenNewTicket: () => void;
+  onNavigate?: (page: string, ticketId?: string) => void;
+  onOpenNewTicket?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOpenNewTicket }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  const handleNav = (page: string, ticketId?: string) => {
+    if (onNavigate) {
+      onNavigate(page, ticketId);
+    } else {
+      if (ticketId) {
+        navigate(`/admin/tickets/${ticketId}`);
+      } else {
+        const routeMap: Record<string, string> = {
+          tickets: '/admin/tickets',
+          'new-ticket': '/admin/raise-ticket',
+          'raise-ticket': '/admin/raise-ticket',
+          'telecaller-desk': '/admin/telecaller-desk',
+          'sla-rules': '/admin/sla',
+          'departments-categories': '/admin/departments',
+          users: '/admin/users',
+          'audit-logs': '/admin/audit',
+        };
+        navigate(routeMap[page] || `/admin/${page}`);
+      }
+    }
+  };
   const [slaRules, setSlaRules] = useState<SlaRule[]>([]);
   const [recentEscalatedTickets, setRecentEscalatedTickets] = useState<Ticket[]>([]);
+  const [period, setPeriod] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData(period);
+  }, [period]);
 
-  const loadData = async () => {
+  const loadData = async (activePeriod: string = period) => {
     setIsLoading(true);
     try {
       const [statsRes, rulesRes, tktRes] = await Promise.all([
-        analyticsApi.getDashboardStats(),
+        analyticsApi.getDashboardStats({ period: activePeriod }),
         adminApi.getSlaRules(),
         ticketApi.list({ limit: 5, status: 'ESCALATED' }),
       ]);
@@ -78,7 +103,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
     { day: '31 May', volume: 38, resolved: 35 },
   ];
 
-  if (isLoading) {
+  if (isLoading && !stats) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
@@ -121,9 +146,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
         </div>
 
         <div className="flex items-center gap-2.5">
-          <span className="px-3 py-1 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-semibold shadow-sm">
-            Fiscal Period: <strong className="text-slate-900">Q2 FY 2025–26</strong>
-          </span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold shadow-sm">
+            <span className="text-slate-500">Period:</span>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="bg-transparent font-bold text-slate-900 border-none outline-none cursor-pointer focus:ring-0 text-xs pr-1"
+            >
+              <option value="all">All Time (System Total)</option>
+              <option value="today">Today</option>
+              <option value="week">Past 7 Days</option>
+              <option value="month">Current Month</option>
+              <option value="q1">Q1 FY 2025–26 (Apr–Jun)</option>
+              <option value="q2">Q2 FY 2025–26 (Jul–Sep)</option>
+              <option value="q3">Q3 FY 2025–26 (Oct–Dec)</option>
+              <option value="q4">Q4 FY 2025–26 (Jan–Mar)</option>
+              <option value="ytd">Year to Date (YTD)</option>
+            </select>
+          </div>
           <button
             onClick={onOpenNewTicket}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-sm transition-all"
@@ -138,7 +178,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Card 1: Total Volume */}
         <div
-          onClick={() => onNavigate('tickets')}
+          onClick={() => handleNav('tickets')}
           className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
@@ -161,7 +201,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
 
         {/* Card 2: Open Queue */}
         <div
-          onClick={() => onNavigate('tickets')}
+          onClick={() => handleNav('tickets')}
           className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
@@ -202,7 +242,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
 
         {/* Card 4: SLA Breached & Escalated */}
         <div
-          onClick={() => onNavigate('tickets')}
+          onClick={() => handleNav('tickets')}
           className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
@@ -322,7 +362,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900">Pending Escalations</h3>
             <button
-              onClick={() => onNavigate('tickets')}
+              onClick={() => handleNav('tickets')}
               className="text-xs font-bold text-blue-600 hover:text-blue-700"
             >
               View All
@@ -338,7 +378,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
               recentEscalatedTickets.map((t) => (
                 <div
                   key={t.id}
-                  onClick={() => onNavigate('ticket-details', t.id)}
+                  onClick={() => handleNav('ticket-details', t.id)}
                   className="p-3 rounded-xl bg-[#f8fafc] border border-slate-200/80 hover:border-blue-400 transition-all cursor-pointer flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
@@ -370,7 +410,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
             <p className="text-xs text-slate-400 mt-0.5">Real-time capacity and active cases handled per agent</p>
           </div>
           <button
-            onClick={() => onNavigate('users')}
+            onClick={() => handleNav('users')}
             className="text-xs font-bold text-blue-600 hover:text-blue-700"
           >
             Manage Team Directory →

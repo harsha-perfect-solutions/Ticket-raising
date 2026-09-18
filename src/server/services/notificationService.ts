@@ -96,6 +96,29 @@ export async function notifyTicketStakeholders({
       userIdsToNotify.add(ticket.customer.userId);
     }
 
+    // Notify CC / Additional Watchers if applicable
+    if ((ticket as any).watchers) {
+      try {
+        const watcherEmails: string[] = JSON.parse((ticket as any).watchers);
+        if (Array.isArray(watcherEmails) && watcherEmails.length > 0) {
+          const watcherUsers = await prisma.user.findMany({
+            where: {
+              email: { in: watcherEmails },
+              isActive: true,
+            },
+            select: { id: true },
+          });
+          for (const wu of watcherUsers) {
+            if (wu.id !== actorId) {
+              userIdsToNotify.add(wu.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse ticket watchers for notification:', err);
+      }
+    }
+
     for (const userId of userIdsToNotify) {
       await createNotification({
         userId,

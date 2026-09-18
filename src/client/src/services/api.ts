@@ -11,6 +11,8 @@ import {
   DashboardStats,
   TicketStatus,
   TicketPriority,
+  Attachment,
+  KBArticle,
 } from '../types';
 
 const api = axios.create({
@@ -65,6 +67,8 @@ export const ticketApi = {
     api.patch<{ success: boolean; ticket: Ticket }>(`/tickets/${id}/status`, data),
   assign: (id: string, data: { assignedAgentId?: string | null; departmentId?: string; reason?: string }) =>
     api.patch<{ success: boolean; ticket: Ticket }>(`/tickets/${id}/assign`, data),
+  autoAllocate: (id: string) =>
+    api.post<{ success: boolean; ticket: Ticket; allocation: any; message: string }>(`/tickets/${id}/auto-allocate`),
   updatePriority: (id: string, priority: TicketPriority) =>
     api.patch<{ success: boolean; ticket: Ticket }>(`/tickets/${id}/priority`, { priority }),
   escalate: (id: string, data: { reason?: string; targetLevel?: number }) =>
@@ -73,23 +77,50 @@ export const ticketApi = {
     api.post<{ success: boolean; message: any }>(`/tickets/${id}/messages`, { message }),
   addInternalNote: (id: string, note: string) =>
     api.post<{ success: boolean; note: any }>(`/tickets/${id}/internal-notes`, { note }),
+  checkDuplicate: (data: { customerId?: string; categoryId?: string; subcategoryId?: string; subject: string; description?: string }) =>
+    api.post<{ success: boolean; hasDuplicate: boolean; duplicates: Ticket[] }>('/tickets/check-duplicate', data),
   submitFeedback: (id: string, data: { rating: number; feedbackText?: string }) =>
     api.post<{ success: boolean; feedback: any }>(`/tickets/${id}/feedback`, data),
   uploadAttachment: (ticketId: string, formData: FormData) =>
-    api.post<{ success: boolean; attachment: any }>(`/tickets/${ticketId}/attachments`, formData, {
+    api.post<{ success: boolean; attachment: Attachment }>(`/tickets/${ticketId}/attachments`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  uploadAttachmentsBatch: (ticketId: string, formData: FormData) =>
+    api.post<{ success: boolean; attachments: Attachment[]; failedFiles?: { name: string; error: string }[] }>(
+      `/tickets/${ticketId}/attachments/batch`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    ),
+  batchUpdate: (data: { ticketIds: string[]; status?: TicketStatus; assignedAgentId?: string | null; reason?: string }) =>
+    api.patch<{ success: boolean; count: number; message: string }>('/tickets/batch', data),
+};
+
+export const kbApi = {
+  search: (params?: { q?: string; category?: string }) =>
+    api.get<{ success: boolean; articles: KBArticle[] }>('/kb/search', { params }),
+  getArticle: (id: string) =>
+    api.get<{ success: boolean; article: KBArticle }>(`/kb/articles/${id}`),
 };
 
 export const adminApi = {
   getDepartments: () => api.get<{ success: boolean; departments: Department[] }>('/admin/departments'),
   createDepartment: (data: Partial<Department>) => api.post<{ success: boolean; department: Department }>('/admin/departments', data),
+  deleteDepartment: (id: string) => api.delete<{ success: boolean; message: string }>(`/admin/departments/${id}`),
   getCategories: () => api.get<{ success: boolean; categories: Category[] }>('/admin/categories'),
   createCategory: (data: any) => api.post<{ success: boolean; category: Category }>('/admin/categories', data),
+  deleteCategory: (id: string) => api.delete<{ success: boolean; message: string }>(`/admin/categories/${id}`),
   getSlaRules: () => api.get<{ success: boolean; rules: SlaRule[] }>('/admin/sla-rules'),
+  createSlaRule: (data: any) => api.post<{ success: boolean; rule: SlaRule; message: string }>('/admin/sla-rules', data),
   updateSlaRule: (id: string, data: Partial<SlaRule>) => api.put<{ success: boolean; rule: SlaRule }>(`/admin/sla-rules/${id}`, data),
+  deleteSlaRule: (id: string) => api.delete<{ success: boolean; message: string }>(`/admin/sla-rules/${id}`),
   getUsers: (params?: any) => api.get<{ success: boolean; users: User[] }>('/admin/users', { params }),
   createUser: (data: any) => api.post<{ success: boolean; user: User }>('/admin/users', data),
+  updateUser: (id: string, data: any) => api.put<{ success: boolean; user: User; message: string }>(`/admin/users/${id}`, data),
+  toggleUserStatus: (id: string) => api.patch<{ success: boolean; user: User; message: string }>(`/admin/users/${id}/toggle-status`),
+  deleteUser: (id: string) => api.delete<{ success: boolean; message: string; deactivated?: boolean }>(`/admin/users/${id}`),
+  resetUserPassword: (id: string, newPassword?: string) => api.post<{ success: boolean; message: string }>(`/admin/users/${id}/reset-password`, { newPassword }),
   getAuditLogs: (params?: any) => api.get<{ success: boolean; logs: AuditLog[] }>('/admin/audit-logs', { params }),
 };
 

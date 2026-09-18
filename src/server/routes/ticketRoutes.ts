@@ -2,15 +2,19 @@ import { Router } from 'express';
 import {
   listTickets,
   createTicket,
+  checkDuplicateTicket,
   getTicketById,
   updateTicketStatus,
   assignTicket,
+  autoAllocateTicket,
   updateTicketPriority,
   escalateTicket,
   addMessage,
   addInternalNote,
   submitFeedback,
   uploadAttachment,
+  uploadAttachmentsBatch,
+  bulkUpdateTickets,
 } from '../controllers/ticketController';
 import { authenticate, requireRoles, checkTicketAccess } from '../middleware/auth';
 import { upload } from '../middleware/upload';
@@ -21,12 +25,15 @@ router.use(authenticate);
 
 // 1. List & Create Tickets
 router.get('/', listTickets);
+router.post('/check-duplicate', checkDuplicateTicket);
 router.post('/', createTicket);
+router.patch('/batch', requireRoles('ADMIN', 'MANAGER', 'AGENT'), bulkUpdateTickets);
 
 // 2. Ticket Details & Scoped Operations
 router.get('/:id', checkTicketAccess, getTicketById);
 router.patch('/:id/status', checkTicketAccess, updateTicketStatus);
 router.patch('/:id/assign', requireRoles('ADMIN', 'MANAGER', 'AGENT'), assignTicket);
+router.post('/:id/auto-allocate', requireRoles('ADMIN', 'MANAGER', 'AGENT'), autoAllocateTicket);
 router.patch('/:id/priority', requireRoles('ADMIN', 'MANAGER'), updateTicketPriority);
 router.post('/:id/escalate', requireRoles('ADMIN', 'MANAGER', 'AGENT'), escalateTicket);
 
@@ -34,6 +41,7 @@ router.post('/:id/escalate', requireRoles('ADMIN', 'MANAGER', 'AGENT'), escalate
 router.post('/:id/messages', checkTicketAccess, addMessage);
 router.post('/:id/internal-notes', requireRoles('ADMIN', 'MANAGER', 'AGENT', 'TELECALLER'), addInternalNote);
 router.post('/:id/attachments', checkTicketAccess, upload.single('file'), uploadAttachment);
+router.post('/:id/attachments/batch', checkTicketAccess, upload.array('files', 5), uploadAttachmentsBatch);
 
 // 4. Customer Feedback
 router.post('/:id/feedback', checkTicketAccess, submitFeedback);

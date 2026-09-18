@@ -12,6 +12,9 @@ import {
   Mail,
   AlertCircle,
   Zap,
+  Eye,
+  EyeOff,
+  Loader2,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -22,20 +25,35 @@ interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) => {
   const { login, switchDemoRole } = useAuth();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      await login(trimmedEmail, password);
+      if (rememberMe) {
+        localStorage.setItem('supportpro_remember_email', trimmedEmail);
+      } else {
+        localStorage.removeItem('supportpro_remember_email');
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials or user account inactive.');
+      setError(err.response?.data?.message || 'Invalid email or password.');
     } finally {
       setIsLoading(false);
     }
@@ -60,18 +78,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
     },
     {
       role: 'AGENT',
-      title: 'Support Agent',
-      desc: 'Investigate assigned tickets, private notes & resolve',
+      title: 'Support Specialist',
+      desc: 'Assigned tickets, resolution workflows & internal collaboration',
       icon: UserCheck,
       color: 'bg-blue-50/70 border-blue-200 text-blue-700 hover:border-blue-400',
-      badge: 'Workbench',
+      badge: 'Tickets',
     },
     {
       role: 'TELECALLER',
-      title: 'Telecaller Desk',
-      desc: 'Fast customer lookup, call logs & ticket dispatch',
+      title: 'Inbound Telecaller',
+      desc: 'Instant caller phone lookup, call logging & rapid ticket creation',
       icon: Headphones,
-      color: 'bg-amber-50/70 border-amber-200 text-amber-800 hover:border-amber-400',
+      color: 'bg-amber-50/70 border-amber-200 text-amber-700 hover:border-amber-400',
       badge: 'Rapid Desk',
     },
     {
@@ -98,7 +116,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
         {/* Main Login Box */}
         <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-6">
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-fade-in">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -106,13 +124,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+              <label htmlFor="login-email" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Email Address
+              </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
+                  id="login-email"
                   type="email"
                   required
-                  placeholder="admin@supportpro.com"
+                  autoComplete="username"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
@@ -121,26 +143,64 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Password</label>
+              <label htmlFor="login-password" className="block text-xs font-bold text-slate-700 mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
-                  type="password"
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
+                  className="w-full pl-10 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                />
+                <span>Remember me</span>
+              </label>
+              <span className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                Forgot password?
+              </span>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2"
             >
-              <span>{isLoading ? 'Signing In...' : 'Sign In to Workspace'}</span>
-              <ArrowRight className="w-4 h-4" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In to Workspace</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
@@ -196,3 +256,5 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
     </div>
   );
 };
+
+export default LoginPage;

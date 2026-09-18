@@ -20,6 +20,8 @@ import {
   Star,
   PhoneCall,
   RotateCcw,
+  Sparkles,
+  Play,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
@@ -28,14 +30,21 @@ import { ResolveTicketModal } from '../../components/modals/ResolveTicketModal';
 import { EscalateModal } from '../../components/modals/EscalateModal';
 import { CustomerFeedbackModal } from '../../components/modals/CustomerFeedbackModal';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
+import { Breadcrumbs } from '../../components/common/Breadcrumbs';
+import { useParams, useNavigate } from 'react-router-dom';
 
 interface TicketDetailsPageProps {
-  ticketId: string;
-  onNavigate: (page: string, ticketId?: string) => void;
+  ticketId?: string;
+  onNavigate?: (page: string, ticketId?: string) => void;
 }
 
-export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, onNavigate }) => {
+export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: propTicketId, onNavigate }) => {
+  const { ticketId: paramTicketId, id: paramId } = useParams<{ ticketId?: string; id?: string }>();
+  const navigate = useNavigate();
+  const activeTicketId = propTicketId || paramTicketId || paramId || '';
+
   const { user } = useAuth();
+  const rolePrefix = user?.role ? user.role.toLowerCase() : 'customer';
   const isCustomer = user?.role === 'CUSTOMER';
   const isStaff = ['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER'].includes(user?.role || '');
 
@@ -63,16 +72,19 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   useEffect(() => {
-    loadTicket();
+    if (activeTicketId) {
+      loadTicket();
+    }
     if (isStaff) {
       loadAgents();
     }
-  }, [ticketId]);
+  }, [activeTicketId]);
 
   const loadTicket = async () => {
+    if (!activeTicketId) return;
     setIsLoading(true);
     try {
-      const res = await ticketApi.getById(ticketId);
+      const res = await ticketApi.getById(activeTicketId);
       if (res.data.success) {
         setTicket(res.data.ticket);
       }
@@ -101,16 +113,16 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
     setIsSendingMessage(true);
     try {
       if (replyMessage.trim()) {
-        await ticketApi.addMessage(ticketId, replyMessage.trim());
+        await ticketApi.addMessage(activeTicketId, replyMessage.trim());
       }
       if (attachmentFile) {
         const formData = new FormData();
         formData.append('file', attachmentFile);
-        await ticketApi.uploadAttachment(ticketId, formData);
+        await ticketApi.uploadAttachment(activeTicketId, formData);
         setAttachmentFile(null);
       }
       setReplyMessage('');
-      await loadTicket();
+      loadTicket();
     } catch (err) {
       console.error('Failed to send message', err);
     } finally {
@@ -124,7 +136,7 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
 
     setIsSendingNote(true);
     try {
-      await ticketApi.addInternalNote(ticketId, internalNote.trim());
+      await ticketApi.addInternalNote(activeTicketId, internalNote.trim());
       setInternalNote('');
       await loadTicket();
     } catch (err) {
@@ -136,13 +148,27 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
 
   const handleAssignAgent = async (agentId: string) => {
     try {
-      await ticketApi.assign(ticketId, {
+      await ticketApi.assign(activeTicketId, {
         assignedAgentId: agentId || null,
         reason: 'Reassigned via ticket details workbench',
       });
       await loadTicket();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const [isAutoAllocating, setIsAutoAllocating] = useState(false);
+  const handleAutoAllocate = async () => {
+    setIsAutoAllocating(true);
+    try {
+      await ticketApi.autoAllocate(activeTicketId);
+      await loadTicket();
+    } catch (err: any) {
+      console.error('Failed to auto-allocate ticket:', err);
+      alert(err.response?.data?.message || 'Failed to auto-allocate ticket');
+    } finally {
+      setIsAutoAllocating(false);
     }
   };
 
@@ -165,7 +191,7 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
     }
 
     try {
-      await ticketApi.updateStatus(ticketId, { status: newStatus });
+      await ticketApi.updateStatus(activeTicketId, { status: newStatus });
       await loadTicket();
     } catch (err) {
       console.error(err);
@@ -174,7 +200,7 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
 
   const handleConfirmClose = async () => {
     try {
-      await ticketApi.updateStatus(ticketId, { status: 'CLOSED', reason: 'Customer or Agent confirmed closure' });
+      await ticketApi.updateStatus(activeTicketId, { status: 'CLOSED', reason: 'Customer or Agent confirmed closure' });
       setShowCloseConfirmModal(false);
       await loadTicket();
       if (isCustomer) {
@@ -187,7 +213,7 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
 
   const handleConfirmReopen = async () => {
     try {
-      await ticketApi.updateStatus(ticketId, { status: 'REOPENED', reason: 'Customer requested reinvestigation' });
+      await ticketApi.updateStatus(activeTicketId, { status: 'REOPENED', reason: 'Customer requested reinvestigation' });
       setShowReopenConfirmModal(false);
       await loadTicket();
     } catch (err) {
@@ -211,7 +237,13 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
       <div className="p-8 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 shadow-sm">
         <p>Ticket not found or access denied.</p>
         <button
-          onClick={() => onNavigate('tickets')}
+          onClick={() => {
+            if (onNavigate) {
+              onNavigate('tickets');
+            } else {
+              navigate(`/${rolePrefix}/tickets`);
+            }
+          }}
           className="mt-3 px-4 py-2 bg-[#2563eb] text-white rounded-xl text-xs font-bold"
         >
           Back to Tickets Queue
@@ -222,13 +254,29 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* Top Breadcrumb & Quick Actions Header */}
+      {/* Dynamic Breadcrumbs with History-Safe Back Button */}
+      <Breadcrumbs
+        items={[
+          { label: 'Tickets Queue', to: `/${rolePrefix}/tickets` },
+          { label: ticket.ticketNumber },
+        ]}
+        backLabel="Back to Tickets"
+        fallbackBackUrl={`/${rolePrefix}/tickets`}
+      />
+
+      {/* Top Details & Quick Actions Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onNavigate('tickets')}
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate('tickets');
+              } else {
+                navigate(-1);
+              }
+            }}
             className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors shadow-sm"
-            title="Back to List"
+            title="Back to Tickets"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -262,18 +310,40 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
               {ticket.status === 'NEW' && (
                 <button
                   onClick={() => handleStatusChange('IN_PROGRESS')}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold transition-all shadow-sm"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                 >
-                  Start Work
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Start Work</span>
+                </button>
+              )}
+
+              {ticket.status === 'ASSIGNED' && (
+                <button
+                  onClick={() => handleStatusChange('IN_PROGRESS')}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Start Progress</span>
                 </button>
               )}
 
               {ticket.status === 'IN_PROGRESS' && (
                 <button
                   onClick={() => handleStatusChange('WAITING_FOR_CUSTOMER')}
-                  className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-bold transition-all"
+                  className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-bold transition-all flex items-center gap-1.5"
                 >
-                  Waiting on Customer
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Waiting on Customer</span>
+                </button>
+              )}
+
+              {ticket.status === 'WAITING_FOR_CUSTOMER' && (
+                <button
+                  onClick={() => handleStatusChange('IN_PROGRESS')}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Resume Work</span>
                 </button>
               )}
 
@@ -394,7 +464,21 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
 
               {/* Assigned Agent Selector */}
               <div className="pt-2 border-t border-slate-100">
-                <label className="block text-slate-500 mb-1.5 font-semibold">Assigned Support Agent:</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-slate-500 font-semibold">Assigned Support Agent:</label>
+                  {isStaff && (
+                    <button
+                      type="button"
+                      onClick={handleAutoAllocate}
+                      disabled={isAutoAllocating}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 disabled:opacity-50"
+                      title="Automatically allocate to staff according to roles or project handlers"
+                    >
+                      <Sparkles className="w-3 h-3 text-blue-600" />
+                      {isAutoAllocating ? 'Allocating...' : 'Auto-Allocate'}
+                    </button>
+                  )}
+                </div>
                 {isStaff ? (
                   <select
                     value={ticket.assignedAgentId || ''}
@@ -413,7 +497,37 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId, 
                     {ticket.assignedAgent?.fullName || 'Assigned to Support Team'}
                   </span>
                 )}
+                {ticket.assignments && ticket.assignments.length > 0 && ticket.assignments[ticket.assignments.length - 1]?.reason?.toLowerCase().includes('auto-allocated') && (
+                  <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 flex items-start gap-1.5 font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{ticket.assignments[ticket.assignments.length - 1].reason}</span>
+                  </div>
+                )}
               </div>
+
+              {/* CC Watchers */}
+              {ticket.watchers && (() => {
+                try {
+                  const watcherList: string[] = typeof ticket.watchers === 'string' ? JSON.parse(ticket.watchers) : ticket.watchers;
+                  if (Array.isArray(watcherList) && watcherList.length > 0) {
+                    return (
+                      <div className="pt-2 border-t border-slate-100 space-y-1">
+                        <span className="text-slate-500 font-semibold block text-[11px]">CC / Watchers:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {watcherList.map((w) => (
+                            <span key={w} className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-medium border border-blue-200">
+                              {w}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                } catch {
+                  return null;
+                }
+                return null;
+              })()}
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                 <span>Created At:</span>

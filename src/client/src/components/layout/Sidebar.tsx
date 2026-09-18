@@ -1,5 +1,5 @@
-import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Ticket as TicketIcon,
@@ -18,13 +18,16 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
+  currentPage?: string;
+  onNavigate?: (page: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const role = user?.role || 'AGENT';
+  const rolePrefix = role.toLowerCase();
 
   interface NavItem {
     id: string;
@@ -55,10 +58,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
       roles: ['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER', 'CUSTOMER'],
     },
     {
-      id: 'new-ticket',
-      label: 'Raise New Ticket',
+      id: 'raise-ticket',
+      label: 'Raise a Ticket',
       icon: PlusCircle,
-      roles: ['CUSTOMER', 'TELECALLER', 'ADMIN'],
+      roles: ['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER', 'CUSTOMER'],
     },
     {
       id: 'sla-rules',
@@ -102,7 +105,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
       <div className="space-y-6">
         {/* Brand Header matching screenshot */}
         <div
-          onClick={() => onNavigate('dashboard')}
+          onClick={() => {
+            if (onNavigate) onNavigate('dashboard');
+            navigate(`/${rolePrefix}/dashboard`);
+          }}
           className="cursor-pointer flex items-center gap-3 px-1 py-0.5 group"
         >
           <div className="w-9 h-9 rounded-xl bg-[#2563eb] text-white flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-all">
@@ -122,11 +128,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
         <div className="space-y-1">
           {visibleItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentPage === item.id;
+            const targetPath = `/${rolePrefix}/${item.id}`;
+            const isActive =
+              location.pathname === targetPath ||
+              (item.id === 'tickets' && location.pathname.startsWith(`/${rolePrefix}/tickets`)) ||
+              currentPage === item.id;
+
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => {
+                  if (onNavigate) onNavigate(item.id);
+                  navigate(targetPath);
+                }}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                   isActive
                     ? 'bg-[#eef2ff] text-[#2563eb] font-bold shadow-sm'
@@ -161,7 +175,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
 
       {/* User Dossier Card at Bottom matching the screenshot */}
       <div className="mt-6 pt-4 border-t border-slate-100">
-        <div className="p-3 rounded-2xl bg-[#f8fafc] border border-slate-200/80 shadow-sm space-y-2.5">
+        <div
+          onClick={logout}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              logout();
+            }
+          }}
+          title="Click to Sign Out"
+          className="p-3 rounded-2xl bg-[#f8fafc] hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 shadow-sm space-y-2.5 cursor-pointer transition-all group select-none"
+        >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#2563eb] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm">
               {initials}
@@ -186,13 +212,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-slate-400 text-xs">
             <div className="flex items-center gap-2">
-              <button
-                onClick={logout}
-                className="p-1 hover:text-rose-600 transition-colors"
+              <span
+                className="p-1 group-hover:text-rose-600 text-slate-400 transition-colors"
                 title="Sign Out"
               >
                 <LogOut className="w-3.5 h-3.5" />
-              </button>
+              </span>
             </div>
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
               Online

@@ -1,9 +1,15 @@
 import { Response } from 'express';
+import fs from 'fs';
 import prisma from '../db';
 import { AuthRequest } from '../middleware/auth';
 import { calculateTicketSla } from '../services/slaService';
-import { notifyTicketStakeholders } from '../services/notificationService';
+import { notifyTicketStakeholders, createNotification } from '../services/notificationService';
 import { logAuditEvent } from '../utils/auditLogger';
+import {
+  determineStaffAllocation,
+  applyTicketAllocation,
+  AutoAllocationResult,
+} from '../services/ticketAllocationService';
 
 // Helper to generate unique human-readable ticket number
 async function generateTicketNumber(): Promise<string> {
@@ -152,6 +158,96 @@ export async function listTickets(req: AuthRequest, res: Response): Promise<void
   }
 }
 
+export async function checkDuplicateTicket(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { customerId: providedCustomerId, categoryId, subcategoryId, subject } = req.body;
+
+    if (!subject || typeof subject !== 'string' || subject.trim().length < 3) {
+      res.json({ success: true, hasDuplicate: false, duplicates: [] });
+      return;
+    }
+
+    let customerId = providedCustomerId;
+    if (req.user?.role === 'CUSTOMER') {
+      if (req.user.customerId) {
+        customerId = req.user.customerId;
+      } else {
+        const cust = await prisma.customer.findFirst({ where: { userId: req.user.userId } });
+        if (cust) customerId = cust.id;
+      }
+    } else if (!customerId) {
+      const cust = await prisma.customer.findFirst({ where: { userId: req.user!.userId } });
+      if (cust) customerId = cust.id;
+    }
+
+    if (!customerId) {
+      res.json({ success: true, hasDuplicate: false, duplicates: [] });
+      return;
+    }
+
+    const activeTickets = await prisma.ticket.findMany({
+      where: {
+        customerId,
+        status: { in: ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_FOR_CUSTOMER', 'ESCALATED'] },
+      },
+      include: {
+        category: true,
+        subcategory: true,
+        department: true,
+        assignedAgent: {
+          select: { id: true, fullName: true, email: true, role: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    if (activeTickets.length === 0) {
+      res.json({ success: true, hasDuplicate: false, duplicates: [] });
+      return;
+    }
+
+    const queryClean = subject.toLowerCase().trim();
+    const queryTokens = queryClean
+      .split(/[\s,._\-:;!?]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3);
+
+    const matches = activeTickets.filter((ticket) => {
+      const sameCategory = categoryId && ticket.categoryId === categoryId;
+      const sameSubcategory = subcategoryId && ticket.subcategoryId === subcategoryId;
+
+      const ticketSubjectLower = ticket.subject.toLowerCase();
+      const directSubstring = ticketSubjectLower.includes(queryClean) || queryClean.includes(ticketSubjectLower);
+
+      const ticketTokens = ticketSubjectLower
+        .split(/[\s,._\-:;!?]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3);
+
+      const commonTokens = queryTokens.filter((token) => ticketTokens.includes(token));
+      const overlapRatio = queryTokens.length > 0 ? commonTokens.length / queryTokens.length : 0;
+
+      const techKeywords = ['vpn', 'password', 'login', 'lockout', 'locked', 'invoice', 'billing', 'charge', 'crash', 'error', 'wifi', 'network', 'outlook', 'email', 'license', 'hardware', 'laptop'];
+      const hasSharedTechKeyword = commonTokens.some((t) => techKeywords.includes(t));
+
+      if (directSubstring) return true;
+      if (overlapRatio >= 0.5 && commonTokens.length >= 2) return true;
+      if (sameCategory && (hasSharedTechKeyword || sameSubcategory)) return true;
+
+      return false;
+    });
+
+    res.json({
+      success: true,
+      hasDuplicate: matches.length > 0,
+      duplicates: matches.slice(0, 3),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to check duplicate tickets', error: error.message });
+  }
+}
+
 export async function createTicket(req: AuthRequest, res: Response): Promise<void> {
   try {
     const {
@@ -166,11 +262,46 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
       callSummary,
       assignedAgentId,
       initialMessage,
+      watchers: providedWatchers,
     } = req.body;
 
-    if (!subject || !description || !categoryId) {
-      res.status(400).json({ success: false, message: 'Subject, description, and category are required.' });
+    // Robust input validation
+    if (!subject || typeof subject !== 'string' || subject.trim().length < 5) {
+      res.status(400).json({ success: false, message: 'Please enter a clear subject with at least 5 characters.' });
       return;
+    }
+    if (subject.trim().length > 200) {
+      res.status(400).json({ success: false, message: 'Subject cannot exceed 200 characters.' });
+      return;
+    }
+    if (!description || typeof description !== 'string' || description.trim().length < 10) {
+      res.status(400).json({ success: false, message: 'Please provide an issue description with at least 10 characters.' });
+      return;
+    }
+    if (!categoryId) {
+      res.status(400).json({ success: false, message: 'Please select an issue category.' });
+      return;
+    }
+
+    // Verify category exists
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { department: true },
+    });
+    if (!category) {
+      res.status(400).json({ success: false, message: 'Invalid category specified.' });
+      return;
+    }
+
+    // Verify subcategory if provided
+    if (subcategoryId) {
+      const sub = await prisma.subcategory.findFirst({
+        where: { id: subcategoryId, categoryId },
+      });
+      if (!sub) {
+        res.status(400).json({ success: false, message: 'Selected subcategory is invalid for this category.' });
+        return;
+      }
     }
 
     let customerId = providedCustomerId;
@@ -200,23 +331,24 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
       source = providedSource || 'TELECALLER';
     }
 
+    // If internal staff (Admin, Manager, Agent) is raising a ticket for themselves without selecting a customer
     if (!customerId) {
-      res.status(400).json({ success: false, message: 'Customer ID is required.' });
-      return;
+      let cust = await prisma.customer.findFirst({ where: { userId: req.user!.userId } });
+      if (!cust) {
+        cust = await prisma.customer.create({
+          data: {
+            userId: req.user!.userId,
+            name: req.user!.email.split('@')[0],
+            email: req.user!.email,
+            phone: 'Internal Staff',
+          },
+        });
+      }
+      customerId = cust.id;
     }
 
-    // Determine Department from Category if not explicitly provided
-    let departmentId = providedDeptId;
-    if (!departmentId) {
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId },
-      });
-      if (!category) {
-        res.status(400).json({ success: false, message: 'Invalid category specified.' });
-        return;
-      }
-      departmentId = category.departmentId;
-    }
+    // Derive Department from Category if not explicitly provided
+    const departmentId = providedDeptId || category.departmentId;
 
     // Generate unique Ticket ID
     const ticketNumber = await generateTicketNumber();
@@ -224,31 +356,63 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
     // Calculate SLA deadlines
     const sla = await calculateTicketSla(priority, categoryId);
 
-    const initialStatus = assignedAgentId ? 'ASSIGNED' : 'NEW';
+    // Automatic Staff Allocation:
+    // Route to appropriate department staff/specialist based on role hierarchy and workload balancing
+    let finalAssignedAgentId = assignedAgentId || null;
+    let allocationDetails: AutoAllocationResult | null = null;
+
+    if (!finalAssignedAgentId && departmentId) {
+      allocationDetails = await determineStaffAllocation(departmentId, categoryId, priority);
+      if (allocationDetails) {
+        finalAssignedAgentId = allocationDetails.agentId;
+      }
+    }
+
+    const initialStatus = finalAssignedAgentId ? 'ASSIGNED' : 'NEW';
+
+    // Parse and validate CC / Watchers
+    let watchersJson: string | null = null;
+    if (Array.isArray(providedWatchers) && providedWatchers.length > 0) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const validWatchers = Array.from(
+        new Set(
+          providedWatchers
+            .map((w: any) => String(w).trim().toLowerCase())
+            .filter((w: string) => emailRegex.test(w) && w !== req.user?.email.toLowerCase())
+        )
+      );
+      if (validWatchers.length > 0) {
+        watchersJson = JSON.stringify(validWatchers);
+      }
+    }
+
+    const ticketData: any = {
+      ticketNumber,
+      customerId,
+      createdById: req.user!.userId,
+      source,
+      categoryId,
+      subcategoryId: subcategoryId || null,
+      departmentId,
+      assignedAgentId: finalAssignedAgentId,
+      subject: subject.trim(),
+      description: description.trim(),
+      callSummary: callSummary ? callSummary.trim() : null,
+      priority,
+      status: initialStatus,
+      slaRuleId: sla.slaRuleId,
+      firstResponseDueAt: sla.firstResponseDueAt,
+      resolutionDueAt: sla.resolutionDueAt,
+      slaStatus: sla.slaStatus,
+      watchers: watchersJson,
+    };
 
     const ticket = await prisma.ticket.create({
-      data: {
-        ticketNumber,
-        customerId,
-        createdById: req.user!.userId,
-        source,
-        categoryId,
-        subcategoryId: subcategoryId || null,
-        departmentId,
-        assignedAgentId: assignedAgentId || null,
-        subject,
-        description,
-        callSummary: callSummary || null,
-        priority,
-        status: initialStatus,
-        slaRuleId: sla.slaRuleId,
-        firstResponseDueAt: sla.firstResponseDueAt,
-        resolutionDueAt: sla.resolutionDueAt,
-        slaStatus: sla.slaStatus,
-      },
+      data: ticketData,
       include: {
         customer: true,
         category: true,
+        subcategory: true,
         department: true,
         assignedAgent: true,
       },
@@ -264,16 +428,29 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
       },
     });
 
-    // Record assignment history if pre-assigned
-    if (assignedAgentId) {
+    // Record assignment history if assigned
+    if (finalAssignedAgentId) {
       await prisma.ticketAssignment.create({
         data: {
           ticketId: ticket.id,
           assignedById: req.user!.userId,
-          assignedToId: assignedAgentId,
-          reason: 'Initial assignment upon creation',
+          assignedToId: finalAssignedAgentId,
+          reason: allocationDetails
+            ? allocationDetails.reason
+            : 'Initial assignment upon creation',
         },
       });
+
+      // Dispatch specific assignment notification to the allocated staff
+      if (allocationDetails) {
+        await createNotification({
+          userId: finalAssignedAgentId,
+          ticketId: ticket.id,
+          title: `🎯 Ticket Auto-Allocated: ${ticket.ticketNumber}`,
+          message: `Ticket ${ticket.ticketNumber} ("${ticket.subject}") has been automatically allocated to you based on your role and department workload (${allocationDetails.departmentName || 'Support'}). Priority: ${ticket.priority}.`,
+          type: 'ASSIGNMENT',
+        });
+      }
     }
 
     // Record status history
@@ -283,7 +460,9 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
         changedById: req.user!.userId,
         oldStatus: 'NONE',
         newStatus: initialStatus,
-        reason: 'Ticket created',
+        reason: allocationDetails
+          ? `Ticket created & auto-allocated to ${allocationDetails.agentName}`
+          : 'Ticket created',
       },
     });
 
@@ -305,7 +484,15 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
       action: 'TICKET_CREATED',
       entityType: 'Ticket',
       entityId: ticket.id,
-      details: { ticketNumber: ticket.ticketNumber, priority, categoryId, source },
+      details: {
+        ticketNumber: ticket.ticketNumber,
+        priority,
+        categoryId,
+        source,
+        assignedAgentId: finalAssignedAgentId,
+        autoAllocated: Boolean(allocationDetails),
+        allocationReason: allocationDetails?.reason,
+      },
       req,
     });
 
@@ -314,7 +501,7 @@ export async function createTicket(req: AuthRequest, res: Response): Promise<voi
       ticketId: ticket.id,
       actorId: req.user!.userId,
       title: `🎫 New Ticket Created: ${ticket.ticketNumber}`,
-      message: `Ticket "${ticket.subject}" created by ${req.user!.email} [${priority}].`,
+      message: `Ticket "${ticket.subject}" created by ${req.user!.email} [${priority}]${allocationDetails ? ` and auto-allocated to ${allocationDetails.agentName}` : ''}.`,
       type: 'STATUS_CHANGE',
     });
 
@@ -566,6 +753,134 @@ export async function assignTicket(req: AuthRequest, res: Response): Promise<voi
     res.json({ success: true, ticket: updatedTicket });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to assign ticket', error: error.message });
+  }
+}
+
+export async function autoAllocateTicket(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const id = req.params.id as string;
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { department: true, category: true },
+    });
+
+    if (!ticket) {
+      res.status(404).json({ success: false, message: 'Ticket not found' });
+      return;
+    }
+
+    const deptId = ticket.departmentId || ticket.category?.departmentId;
+    if (!deptId) {
+      res.status(400).json({ success: false, message: 'Ticket has no associated department for allocation' });
+      return;
+    }
+
+    const allocation = await determineStaffAllocation(deptId, ticket.categoryId || undefined, ticket.priority);
+    if (!allocation) {
+      res.status(400).json({ success: false, message: 'No available staff or project handlers found for allocation' });
+      return;
+    }
+
+    const updatedTicket = await applyTicketAllocation(ticket.id, req.user!.userId, allocation);
+
+    await logAuditEvent({
+      userId: req.user!.userId,
+      ticketId: id,
+      action: 'TICKET_AUTO_ALLOCATED',
+      entityType: 'Ticket',
+      entityId: id,
+      details: {
+        assignedAgentId: allocation.agentId,
+        autoAllocated: true,
+        reason: allocation.reason,
+      },
+      req,
+    });
+
+    res.json({
+      success: true,
+      ticket: updatedTicket,
+      allocation,
+      message: `Successfully allocated to ${allocation.agentName}`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to auto-allocate ticket', error: error.message });
+  }
+}
+
+export async function bulkUpdateTickets(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { ticketIds, status, assignedAgentId, reason } = req.body;
+
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      res.status(400).json({ success: false, message: 'Array of ticketIds is required' });
+      return;
+    }
+
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (assignedAgentId !== undefined) {
+      updateData.assignedAgentId = assignedAgentId || null;
+      if (assignedAgentId && status === undefined) {
+        updateData.status = 'ASSIGNED';
+      }
+    }
+
+    const now = new Date();
+    if (status === 'RESOLVED') {
+      updateData.resolvedAt = now;
+      updateData.resolutionNotes = reason || 'Batch resolved by support staff';
+    } else if (status === 'CLOSED') {
+      updateData.closedAt = now;
+    }
+
+    // Execute bulk update
+    const result = await prisma.ticket.updateMany({
+      where: { id: { in: ticketIds } },
+      data: updateData,
+    });
+
+    // Record assignments or status history for each ticket
+    for (const tid of ticketIds) {
+      if (assignedAgentId) {
+        await prisma.ticketAssignment.create({
+          data: {
+            ticketId: tid,
+            assignedById: req.user!.userId,
+            assignedToId: assignedAgentId,
+            reason: reason || 'Batch reassignment by administrator/manager',
+          },
+        });
+      }
+      if (status) {
+        await prisma.ticketStatusHistory.create({
+          data: {
+            ticketId: tid,
+            changedById: req.user!.userId,
+            oldStatus: 'BATCH_UPDATE',
+            newStatus: status,
+            reason: reason || `Batch update to ${status}`,
+          },
+        });
+      }
+    }
+
+    await logAuditEvent({
+      userId: req.user!.userId,
+      action: 'TICKETS_BATCH_UPDATED',
+      entityType: 'Ticket',
+      entityId: ticketIds[0],
+      details: { count: result.count, updateData, reason },
+      req,
+    });
+
+    res.json({
+      success: true,
+      count: result.count,
+      message: `Successfully updated ${result.count} tickets.`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to batch update tickets', error: error.message });
   }
 }
 
@@ -859,22 +1174,83 @@ export async function uploadAttachment(req: AuthRequest, res: Response): Promise
       return;
     }
 
-    const attachment = await prisma.attachment.create({
-      data: {
-        ticketId,
-        messageId: messageId || null,
-        internalNoteId: internalNoteId || null,
-        uploaderId: req.user!.userId,
-        fileName: file.filename,
-        originalName: file.originalname,
-        filePath: `/uploads/${file.filename}`,
-        fileSize: file.size,
-        mimeType: file.mimetype,
-      },
-    });
+    try {
+      const attachment = await prisma.attachment.create({
+        data: {
+          ticketId,
+          messageId: messageId || null,
+          internalNoteId: internalNoteId || null,
+          uploaderId: req.user!.userId,
+          fileName: file.filename,
+          originalName: file.originalname,
+          filePath: `/uploads/${file.filename}`,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+        },
+      });
 
-    res.status(201).json({ success: true, attachment });
+      res.status(201).json({ success: true, attachment });
+    } catch (dbErr: any) {
+      if (file.path && fs.existsSync(file.path)) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (unlinkErr) {
+          console.error('Failed to unlink failed attachment file:', unlinkErr);
+        }
+      }
+      throw dbErr;
+    }
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to upload attachment', error: error.message });
   }
 }
+
+export async function uploadAttachmentsBatch(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const ticketId = req.params.id as string;
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ success: false, message: 'No files provided.' });
+      return;
+    }
+
+    const createdAttachments = [];
+    const failedFiles: { name: string; error: string }[] = [];
+
+    for (const file of files) {
+      try {
+        const att = await prisma.attachment.create({
+          data: {
+            ticketId,
+            uploaderId: req.user!.userId,
+            fileName: file.filename,
+            originalName: file.originalname,
+            filePath: `/uploads/${file.filename}`,
+            fileSize: file.size,
+            mimeType: file.mimetype,
+          },
+        });
+        createdAttachments.push(att);
+      } catch (err: any) {
+        if (file.path && fs.existsSync(file.path)) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (unlinkErr) {
+            console.error('Failed to unlink failed batch file:', unlinkErr);
+          }
+        }
+        failedFiles.push({ name: file.originalname, error: err.message });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      attachments: createdAttachments,
+      failedFiles: failedFiles.length > 0 ? failedFiles : undefined,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to batch upload attachments', error: error.message });
+  }
+}
+

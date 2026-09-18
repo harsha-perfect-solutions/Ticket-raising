@@ -21,12 +21,27 @@ import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
 import { NewCustomerModal } from '../../components/modals/NewCustomerModal';
 import { NewTicketModal } from '../../components/modals/NewTicketModal';
+import { Breadcrumbs } from '../../components/common/Breadcrumbs';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface TelecallerDeskProps {
-  onNavigate: (page: string, ticketId?: string) => void;
+  onNavigate?: (page: string, ticketId?: string) => void;
 }
 
 export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const rolePrefix = user?.role ? user.role.toLowerCase() : 'telecaller';
+
+  const handleOpenTicket = (ticketId: string) => {
+    if (onNavigate) {
+      onNavigate('ticket-details', ticketId);
+    } else {
+      navigate(`/${rolePrefix}/tickets/${ticketId}`);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -89,6 +104,8 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <Breadcrumbs items={[{ label: 'Rapid Telecaller Desk' }]} />
+
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
         <div className="flex items-center gap-3.5">
@@ -276,7 +293,7 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
                 customerDetails?.customer.tickets?.map((ticket) => (
                   <div
                     key={ticket.id}
-                    onClick={() => onNavigate('ticket-details', ticket.id)}
+                    onClick={() => handleOpenTicket(ticket.id)}
                     className="p-3.5 rounded-xl bg-[#f8fafc] border border-slate-200/80 hover:border-blue-400 transition-all cursor-pointer group"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -315,7 +332,7 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
                 Tickets You Recently Logged
               </h3>
               <button
-                onClick={() => onNavigate('tickets')}
+                onClick={() => onNavigate ? onNavigate('tickets') : navigate(`/${rolePrefix}/tickets`)}
                 className="text-xs font-bold text-blue-600 hover:text-blue-700"
               >
                 View Full Queue →
@@ -331,7 +348,7 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
                 myLoggedTickets.map((t) => (
                   <div
                     key={t.id}
-                    onClick={() => onNavigate('ticket-details', t.id)}
+                    onClick={() => handleOpenTicket(t.id)}
                     className="p-3 rounded-xl bg-[#f8fafc] border border-slate-200/80 hover:border-amber-400 transition-all cursor-pointer flex items-center justify-between text-xs"
                   >
                     <div>
@@ -377,7 +394,7 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
           onTicketCreated={(newId) => {
             loadMyLoggedTickets();
             if (selectedCustomer) selectCustomer(selectedCustomer);
-            onNavigate('ticket-details', newId);
+            handleOpenTicket(newId);
           }}
           preSelectedCustomer={selectedCustomer}
         />

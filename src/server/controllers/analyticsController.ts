@@ -4,7 +4,7 @@ import { AuthRequest } from '../middleware/auth';
 
 export async function getDashboardStats(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { departmentId, agentId, timeRange } = req.query;
+    const { departmentId, agentId, timeRange, period } = req.query;
 
     const baseWhere: any = {};
     if (req.user?.role === 'CUSTOMER' && req.user.customerId) {
@@ -18,6 +18,44 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
     } else {
       if (departmentId) baseWhere.departmentId = departmentId as string;
       if (agentId) baseWhere.assignedAgentId = agentId as string;
+    }
+
+    // Handle date filtering for period or timeRange
+    const activeRange = (period || timeRange || 'all') as string;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    if (activeRange === 'today') {
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      baseWhere.createdAt = { gte: startOfDay };
+    } else if (activeRange === 'week' || activeRange === '7d') {
+      const pastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      baseWhere.createdAt = { gte: pastWeek };
+    } else if (activeRange === 'month' || activeRange === 'current_month' || activeRange === '30d') {
+      const startOfMonth = new Date(currentYear, now.getMonth(), 1);
+      baseWhere.createdAt = { gte: startOfMonth };
+    } else if (activeRange === 'q1') {
+      baseWhere.createdAt = {
+        gte: new Date(currentYear, 3, 1),
+        lte: new Date(currentYear, 5, 30, 23, 59, 59),
+      };
+    } else if (activeRange === 'q2') {
+      baseWhere.createdAt = {
+        gte: new Date(currentYear, 6, 1),
+        lte: new Date(currentYear, 8, 30, 23, 59, 59),
+      };
+    } else if (activeRange === 'q3') {
+      baseWhere.createdAt = {
+        gte: new Date(currentYear, 9, 1),
+        lte: new Date(currentYear, 11, 31, 23, 59, 59),
+      };
+    } else if (activeRange === 'q4') {
+      baseWhere.createdAt = {
+        gte: new Date(currentYear, 0, 1),
+        lte: new Date(currentYear, 2, 31, 23, 59, 59),
+      };
+    } else if (activeRange === 'ytd') {
+      baseWhere.createdAt = { gte: new Date(currentYear, 0, 1) };
     }
 
     const allTickets = await prisma.ticket.findMany({
