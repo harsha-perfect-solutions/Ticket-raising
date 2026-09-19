@@ -11,6 +11,8 @@ import adminRoutes from './routes/adminRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import kbRoutes from './routes/kbRoutes';
+import securityRoutes from './routes/securityRoutes';
+import workspaceRoutes from './routes/workspaceRoutes';
 
 const app = express();
 
@@ -41,6 +43,10 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/kb', kbRoutes);
+app.use('/api/v1/security', securityRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/v1/workspaces', workspaceRoutes);
+app.use('/api/workspaces', workspaceRoutes);
 
 // Health Check
 app.get('/api/health', (req: Request, res: Response) => {

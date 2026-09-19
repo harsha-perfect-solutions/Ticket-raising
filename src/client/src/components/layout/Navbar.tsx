@@ -24,9 +24,11 @@ import {
   Flame,
   ArrowRight,
   X,
+  Zap,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 import { useNavigate } from 'react-router-dom';
+import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 
 interface NavbarProps {
   onNavigate?: (page: string, ticketId?: string) => void;
@@ -511,6 +513,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
 
   return (
     <header className="sticky top-0 z-40 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 lg:px-8 flex items-center justify-between shadow-[0_1px_3px_0_rgba(0,0,0,0.02)]">
+      {/* Mobile Brand Header */}
+      <div
+        onClick={() => navigate(`/${currentRole.toLowerCase()}/dashboard`)}
+        className="flex items-center gap-2.5 md:hidden cursor-pointer group mr-3"
+      >
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all ring-2 ring-blue-500/15">
+          <Zap className="w-4 h-4 fill-white text-white" />
+        </div>
+        <div className="flex flex-col">
+          <div className="font-black text-sm tracking-tight leading-none flex items-center">
+            <span className="text-slate-900">Resolve</span>
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Hub</span>
+          </div>
+          <span className="text-[9px] text-slate-400 font-medium leading-none mt-0.5">
+            by HPS(OPC) Pvt. Ltd.
+          </span>
+        </div>
+      </div>
+
       {/* Role-Aware Search Bar */}
       <div className="flex-1 max-w-md hidden md:block" ref={searchContainerRef}>
         <div className="relative">
@@ -676,65 +697,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigate }) => {
           <span className="hidden sm:inline">Raise Ticket</span>
         </button>
 
-        {/* Quick Demo Persona Switcher */}
-        <div className="relative" ref={roleRef}>
-          <button
-            onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#f8fafc] hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold transition-all shadow-sm"
-          >
-            <div className={`p-1 rounded-md border ${roleColors[currentRole]}`}>
-              <CurrentRoleIcon className="w-3.5 h-3.5" />
-            </div>
-            <div className="text-left hidden sm:block">
-              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider leading-none">Perspective</div>
-              <div className="font-bold text-slate-800 text-xs mt-0.5 leading-none">{user?.role}</div>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </button>
-
-          {showRoleSwitcher && (
-            <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl p-2 z-50 animate-fade-in">
-              <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                <p className="text-xs font-bold text-slate-800">Switch Demo Perspective</p>
-                <p className="text-[11px] text-slate-400">Instant testing for all 5 user roles</p>
-              </div>
-
-              {(['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER', 'CUSTOMER'] as UserRole[]).map((role) => {
-                const Icon = roleIcons[role];
-                const isActive = user?.role === role;
-                const matchAcc = demoAccounts.find((a) => a.role === role);
-
-                return (
-                  <button
-                    key={role}
-                    onClick={() => {
-                      switchDemoRole(role);
-                      setShowRoleSwitcher(false);
-                      if (onNavigate) onNavigate('dashboard');
-                      navigate(`/${role.toLowerCase()}/dashboard`);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors ${
-                      isActive ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`p-1.5 rounded-lg border ${roleColors[role]}`}>
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="text-left">
-                        <div className="font-bold text-slate-800">{role}</div>
-                        <div className="text-[10px] text-slate-400">{matchAcc?.fullName || role}</div>
-                      </div>
-                    </div>
-                    {isActive && <Check className="w-4 h-4 text-blue-600" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Notifications Center Popover */}
+        {/* Multi-Tenant Enterprise Workspace Switcher */}
+        <WorkspaceSwitcher />
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}

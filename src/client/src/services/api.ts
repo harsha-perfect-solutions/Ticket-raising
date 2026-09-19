@@ -22,12 +22,14 @@ const api = axios.create({
   },
 });
 
-// Attach Authorization Bearer token to all outgoing requests
+// Attach Authorization Bearer token & Tenant Workspace ID to all outgoing requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('supportpro_token') || sessionStorage.getItem('supportpro_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const activeWorkspaceId = localStorage.getItem('resolvehub_active_workspace_id') || localStorage.getItem('omnidesk_active_workspace_id') || 'ws-acme-corp';
+  config.headers['x-workspace-id'] = activeWorkspaceId;
   return config;
 });
 
@@ -49,6 +51,8 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: (data: any) => api.post<{ success: boolean; token: string; user: User }>('/auth/login', data),
+  verifyMfaLogin: (data: { tempToken: string; totpCode?: string; backupCode?: string }) =>
+    api.post<{ success: boolean; token: string; user: User }>('/auth/mfa/verify', data),
   register: (data: any) => api.post<{ success: boolean; token: string; user: User }>('/auth/register', data),
   getMe: () => api.get<{ success: boolean; user: User }>('/auth/me'),
   getDemoAccounts: () => api.get<{ success: boolean; accounts: User[] }>('/auth/demo-accounts'),
@@ -140,4 +144,5 @@ export const notificationApi = {
   markAllRead: () => api.post<{ success: boolean }>('/notifications/mark-all-read'),
 };
 
+export { api };
 export default api;

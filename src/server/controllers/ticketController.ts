@@ -10,6 +10,7 @@ import {
   applyTicketAllocation,
   AutoAllocationResult,
 } from '../services/ticketAllocationService';
+import { scanAttachmentAsync } from '../services/antivirusScanner';
 
 // Helper to generate unique human-readable ticket number
 async function generateTicketNumber(): Promise<string> {
@@ -1223,6 +1224,16 @@ export async function uploadAttachment(req: AuthRequest, res: Response): Promise
         },
       });
 
+      // Asynchronously trigger ClamAV & AWS GuardDuty malware scan pipeline
+      scanAttachmentAsync({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        originalName: attachment.originalName,
+        filePath: attachment.filePath,
+        fileSize: attachment.fileSize,
+        mimeType: attachment.mimeType,
+      }).catch((err) => console.error('Antivirus scan pipeline error:', err));
+
       res.status(201).json({ success: true, attachment });
     } catch (dbErr: any) {
       if (file.path && fs.existsSync(file.path)) {
@@ -1266,6 +1277,16 @@ export async function uploadAttachmentsBatch(req: AuthRequest, res: Response): P
           },
         });
         createdAttachments.push(att);
+
+        // Asynchronously trigger malware scan pipeline for batch item
+        scanAttachmentAsync({
+          id: att.id,
+          fileName: att.fileName,
+          originalName: att.originalName,
+          filePath: att.filePath,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+        }).catch((err) => console.error('Batch antivirus scan error:', err));
       } catch (err: any) {
         if (file.path && fs.existsSync(file.path)) {
           try {

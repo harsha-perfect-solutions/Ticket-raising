@@ -168,12 +168,23 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin })
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-12 h-12 rounded-2xl bg-[#2563eb] text-white flex items-center justify-center shadow-md shadow-blue-500/20 mx-auto">
-          <Zap className="w-6 h-6 fill-white text-white" />
+      {/* Ambient background glow */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 mx-auto ring-4 ring-blue-500/10 mb-3">
+          <Zap className="w-7 h-7 fill-white text-white" />
         </div>
-        <h2 className="mt-4 text-2xl font-extrabold text-slate-900 tracking-tight">Customer Portal Registration</h2>
-        <p className="mt-1 text-xs text-slate-500 font-medium">Create an account to submit and track support tickets</p>
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1">
+          <span>Resolve</span>
+          <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">Hub</span>
+        </h2>
+        <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/90 border border-slate-200/80 shadow-xs">
+          <span className="text-[11px] font-medium text-slate-500">powered by</span>
+          <span className="text-[11px] font-extrabold text-slate-800 tracking-tight">HPS(OPC) Pvt. Ltd.</span>
+        </div>
+        <p className="mt-2 text-xs text-slate-500 font-medium">Customer Portal &bull; Create an account to submit & track support tickets</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl px-4 sm:px-0">
@@ -485,6 +496,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin })
               ← Back to Sign In
             </button>
           </div>
+        </div>
+
+        {/* Footer Attribution */}
+        <div className="text-center text-xs text-slate-400 font-medium pt-2 pb-4 select-none">
+          ResolveHub &copy; {new Date().getFullYear()} &bull; Powered by <span className="font-semibold text-slate-600">HPS(OPC) Pvt. Ltd.</span> All rights reserved.
         </div>
       </div>
     </div>

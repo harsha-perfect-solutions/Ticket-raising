@@ -8,7 +8,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   demoAccounts: User[];
-  login: (email: string, password?: string, rememberMe?: boolean) => Promise<void>;
+  login: (email: string, password?: string, rememberMe?: boolean) => Promise<{ mfaRequired?: boolean; tempToken?: string; email?: string } | void>;
+  verifyMfaLogin: (tempToken: string, totpCode?: string, backupCode?: string, rememberMe?: boolean) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   switchDemoUser: (userId: string) => Promise<void>;
@@ -84,6 +85,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const res = await authApi.login({ email, password });
+      if ((res.data as any).mfaRequired) {
+        setIsLoading(false);
+        return {
+          mfaRequired: true,
+          tempToken: (res.data as any).tempToken,
+          email: (res.data as any).email,
+        };
+      }
+      if (res.data.success) {
+        setToken(res.data.token);
+        setUser(res.data.user);
+        if (rememberMe) {
+          localStorage.setItem('supportpro_token', res.data.token);
+          localStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+          localStorage.setItem('supportpro_remember_me', 'true');
+          sessionStorage.removeItem('supportpro_token');
+          sessionStorage.removeItem('supportpro_user');
+        } else {
+          sessionStorage.setItem('supportpro_token', res.data.token);
+          sessionStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+          localStorage.removeItem('supportpro_token');
+          localStorage.removeItem('supportpro_user');
+          localStorage.removeItem('supportpro_remember_me');
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyMfaLogin = async (
+    tempToken: string,
+    totpCode?: string,
+    backupCode?: string,
+    rememberMe: boolean = false
+  ) => {
+    setIsLoading(true);
+    try {
+      const res = await authApi.verifyMfaLogin({ tempToken, totpCode, backupCode });
       if (res.data.success) {
         setToken(res.data.token);
         setUser(res.data.user);
@@ -162,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         demoAccounts,
         login,
+        verifyMfaLogin,
         register,
         logout,
         switchDemoUser,

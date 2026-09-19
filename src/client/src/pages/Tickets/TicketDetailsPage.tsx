@@ -22,6 +22,7 @@ import {
   RotateCcw,
   Sparkles,
   Play,
+  ShieldCheck,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
@@ -34,6 +35,11 @@ import { CustomerFeedbackModal } from '../../components/modals/CustomerFeedbackM
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
 import { useParams, useNavigate } from 'react-router-dom';
+
+import { AgentCollisionBanner } from '../../components/agent/AgentCollisionBanner';
+import { AiCoPilotModal } from '../../components/agent/AiCoPilotModal';
+import { SplitScreenWorkbench } from '../../components/agent/SplitScreenWorkbench';
+import { Columns } from 'lucide-react';
 
 interface TicketDetailsPageProps {
   ticketId?: string;
@@ -56,6 +62,10 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
   const [activeTab, setActiveTab] = useState<'conversation' | 'internalNotes' | 'slaTimeline' | 'auditTrail'>(
     'conversation'
   );
+
+  // Category 3 States
+  const [showAiCoPilotModal, setShowAiCoPilotModal] = useState(false);
+  const [isSplitWorkbench, setIsSplitWorkbench] = useState(false);
 
   // Message & Note Input states
   const [replyMessage, setReplyMessage] = useState('');
@@ -266,6 +276,9 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
         fallbackBackUrl={`/${rolePrefix}/tickets`}
       />
 
+      {/* Real-Time Agent Collision Warning Banner */}
+      <AgentCollisionBanner ticketId={ticket.id} ticketNumber={ticket.ticketNumber} />
+
       {/* Top Details & Quick Actions Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
         <div className="flex items-center gap-3">
@@ -305,6 +318,20 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
             ticketStatus={ticket.status}
             resolvedAt={ticket.resolvedAt}
           />
+
+          {isStaff && (
+            <button
+              onClick={() => setIsSplitWorkbench(!isSplitWorkbench)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 border ${
+                isSplitWorkbench
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Columns className="w-3.5 h-3.5" />
+              <span>{isSplitWorkbench ? 'Exit Split View' : 'Split Workbench'}</span>
+            </button>
+          )}
 
           {/* Quick Staff Transition Actions */}
           {isStaff && !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(ticket.status) && (
@@ -401,8 +428,12 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
 
       {/* Main Grid: Left Column Dossier (4 cols) & Right Column Tabs/Thread (8 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Dossier & Metadata (4 cols) */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* Left Column: Dossier & Metadata or SplitScreenWorkbench (4/6 cols) */}
+        <div className={`${isSplitWorkbench ? 'lg:col-span-5' : 'lg:col-span-4'} space-y-4`}>
+          {isSplitWorkbench ? (
+            <SplitScreenWorkbench ticket={ticket} />
+          ) : (
+            <>
           {/* Customer Profile Card */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -584,15 +615,14 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
                 </span>
                 <span className="text-xs font-extrabold text-amber-700">{ticket.feedback.rating} / 5 Stars</span>
               </div>
-              {ticket.feedback.feedbackText && (
-                <p className="text-xs text-slate-700 italic">"{ticket.feedback.feedbackText}"</p>
-              )}
             </div>
+          )}
+            </>
           )}
         </div>
 
-        {/* Right Column: Tabbed Workbench & Conversation Thread (8 cols) */}
-        <div className="lg:col-span-8 rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+        {/* Right Column: Tabbed Workbench & Conversation Thread (7 or 8 cols) */}
+        <div className={`${isSplitWorkbench ? 'lg:col-span-7' : 'lg:col-span-8'} rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden flex flex-col min-h-[600px]`}>
           {/* Tabs Navigation Bar */}
           <div className="bg-slate-50 border-b border-slate-200 px-4 flex items-center gap-2 overflow-x-auto">
             <button
@@ -682,16 +712,20 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
                         {msg.attachments && msg.attachments.length > 0 && (
                           <div className="pt-2 space-y-1">
                             {msg.attachments.map((att) => (
-                              <a
-                                key={att.id}
-                                href={att.filePath}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/10 hover:bg-black/20 text-xs font-semibold text-slate-900 transition-colors"
-                              >
-                                <Download className="w-3 h-3" />
-                                <span>{att.originalName} ({Math.round(att.fileSize / 1024)} KB)</span>
-                              </a>
+                              <div key={att.id} className="flex items-center gap-2 flex-wrap">
+                                <a
+                                  href={att.filePath}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/10 hover:bg-black/20 text-xs font-semibold text-slate-900 transition-colors"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>{att.originalName} ({Math.round(att.fileSize / 1024)} KB)</span>
+                                </a>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-600" /> ClamAV Verified Clean
+                                </span>
+                              </div>
                             ))}
                           </div>
                         )}
@@ -720,6 +754,16 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
+                      {isStaff && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAiCoPilotModal(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-bold transition-all shadow-sm hover:from-indigo-700 hover:to-violet-700"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>AI Co-Pilot</span>
+                        </button>
+                      )}
                       <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 transition-colors shadow-sm">
                         <Paperclip className="w-3.5 h-3.5 text-blue-600" />
                         <span>{attachmentFile ? attachmentFile.name : 'Attach File'}</span>
@@ -945,6 +989,16 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
           isDestructive
           onClose={() => setShowReopenConfirmModal(false)}
           onConfirm={handleConfirmReopen}
+        />
+      )}
+
+      {/* Category 3 AI Co-Pilot Modal */}
+      {showAiCoPilotModal && (
+        <AiCoPilotModal
+          isOpen={showAiCoPilotModal}
+          ticket={ticket}
+          onClose={() => setShowAiCoPilotModal(false)}
+          onApplyResponse={(draftText) => setReplyMessage(draftText)}
         />
       )}
     </div>

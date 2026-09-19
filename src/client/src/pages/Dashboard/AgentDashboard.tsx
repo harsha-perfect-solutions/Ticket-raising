@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ticketApi } from '../../services/api';
 import { Ticket } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { KanbanDashboard } from '../../components/dashboard/KanbanDashboard';
 import {
   UserCheck,
   AlertTriangle,
@@ -14,6 +15,8 @@ import {
   PlusCircle,
   Headphones,
   Check,
+  Kanban,
+  LayoutDashboard,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
@@ -23,6 +26,7 @@ import { EmailLink } from '../../components/common/ContactActions';
 export const AgentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [viewMode, setViewMode] = useState<'ANALYTICS' | 'KANBAN'>('ANALYTICS');
   const [assignedTickets, setAssignedTickets] = useState<Ticket[]>([]);
   const [allTickets, setAllTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +76,27 @@ export const AgentDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* View Mode Switcher */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button
+              onClick={() => setViewMode('ANALYTICS')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'ANALYTICS' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" /> Workbench
+            </button>
+            <button
+              onClick={() => setViewMode('KANBAN')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'KANBAN' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Kanban className="h-3.5 w-3.5" /> Kanban Board
+            </button>
+          </div>
+
           <Link
             to="/agent/raise-ticket"
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm flex items-center gap-2 transition-all"
@@ -89,6 +113,14 @@ export const AgentDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {viewMode === 'KANBAN' ? (
+        <KanbanDashboard
+          onNavigateTicket={(tId) => navigate(`/agent/tickets/${tId}`)}
+          onRaiseTicket={() => navigate('/agent/raise-ticket')}
+        />
+      ) : (
+        <div className="space-y-6">
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -264,6 +296,8 @@ export const AgentDashboard: React.FC = () => {
           </div>
         )}
       </div>
+        </div>
+      )}
     </div>
   );
 };

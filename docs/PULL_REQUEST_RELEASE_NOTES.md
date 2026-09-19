@@ -1,8 +1,9 @@
-# SupportPro ITSM — Pull Request & Release Notes
+# ResolveHub ITSM — Pull Request & Release Notes
+> **powered by HPS(OPC) Pvt. Ltd.**
 
-**PR Title**: `feat(global-ux): Global ITSM Validation, Navigation, Attachment Security, Audit Formatting & Dynamic Contact Links`  
+**PR Title**: `feat(global-ux): ResolveHub Enterprise Rebranding, Validation, Security & Multi-Tenancy`  
 **Branch**: `main` / `release/v2.4.0`  
-**Target Release**: SupportPro ITSM v2.4.0  
+**Target Release**: ResolveHub ITSM v2.4.0 (powered by HPS(OPC) Pvt. Ltd.)  
 
 ---
 
@@ -52,6 +53,11 @@ This release delivers major platform-wide UX enhancements, security hardening, s
 ### 7. Actionable Contact Links (`tel:`, `mailto:`, Google Maps)
 - Created shared [ContactActions.tsx](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/client/src/components/common/ContactActions.tsx) exporting `<PhoneLink>`, `<EmailLink>`, and `<LocationLink>`.
 - Integrated in Ticket Details, Telecaller Desk, User Directory table, Ticket List queue, Telecaller Dashboard, and Agent Dashboard.
+
+### 8. Category 5: Security, Compliance & System Architecture
+- **SEC-01 Asynchronous Cloud Antivirus Pipeline**: Background threat scanner ([antivirusScanner.ts](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/server/services/antivirusScanner.ts)) simulating ClamAV & AWS GuardDuty for JPG, PNG, PDF uploads with real-time admin metrics panel ([AntivirusSecurityPanel.tsx](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/client/src/components/admin/AntivirusSecurityPanel.tsx)) and ticket attachment verification badges.
+- **SEC-02 Multi-Factor Authentication (MFA / TOTP)**: RFC 6238 HMAC-SHA1 engine ([totp.ts](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/server/utils/totp.ts)) supporting Google Authenticator, Authy, and Microsoft Authenticator with 2-step login challenge, 8 emergency recovery codes, and enrollment modal ([MfaSetupModal.tsx](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/client/src/components/auth/MfaSetupModal.tsx)).
+- **SEC-03 Multi-Tenant Workspace Isolation**: Tenant segregation middleware ([tenantIsolation.ts](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/server/middleware/tenantIsolation.ts)), header injection context ([WorkspaceContext.tsx](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/client/src/context/WorkspaceContext.tsx)), top-bar workspace switcher ([WorkspaceSwitcher.tsx](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/client/src/components/workspace/WorkspaceSwitcher.tsx)), and enterprise administration console ([WorkspaceIsolationPage.tsx](file:///c:/Users/netaj/OneDrive/Documents/projects/ticket/Ticket-raising/src/client/src/pages/Admin/WorkspaceIsolationPage.tsx)).
 
 ---
 

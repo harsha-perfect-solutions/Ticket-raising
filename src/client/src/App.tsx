@@ -25,6 +25,11 @@ import { SlaConfigPage } from './pages/Admin/SlaConfigPage';
 import { DepartmentsCategoriesPage } from './pages/Admin/DepartmentsCategoriesPage';
 import { UserManagementPage } from './pages/Admin/UserManagementPage';
 import { AuditLogsPage } from './pages/Admin/AuditLogsPage';
+import { WorkspaceIsolationPage } from './pages/Admin/WorkspaceIsolationPage';
+import { AntivirusSecurityPanel } from './components/admin/AntivirusSecurityPanel';
+import { WorkspaceProvider } from './context/WorkspaceContext';
+
+import { SupportWidget } from './components/common/SupportWidget';
 
 // Main Application Shell for authenticated pages
 const AppShell: React.FC = () => {
@@ -33,12 +38,29 @@ const AppShell: React.FC = () => {
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto max-h-[calc(100vh-4rem)] bg-[#f4f7fb]">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 p-4 lg:p-8 overflow-y-auto max-h-[calc(100vh-4rem)] bg-[#f4f7fb] flex flex-col justify-between">
+          <div className="max-w-7xl mx-auto w-full flex-1">
             <Outlet />
           </div>
+          {/* Enterprise Footer */}
+          <footer className="mt-8 pt-4 pb-2 border-t border-slate-200/70 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-400 gap-2 max-w-7xl mx-auto w-full select-none">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-slate-700">ResolveHub</span>
+              <span>&bull;</span>
+              <span>powered by <strong className="text-slate-700 font-semibold">HPS(OPC) Pvt. Ltd.</strong></span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                All Systems Operational
+              </span>
+              <span>&bull;</span>
+              <span>Enterprise ITSM v2.4</span>
+            </div>
+          </footer>
         </main>
       </div>
+      <SupportWidget />
     </div>
   );
 };
@@ -51,7 +73,7 @@ const RootRedirect: React.FC = () => {
       <div className="min-h-screen bg-[#f4f7fb] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-          <p className="text-xs font-semibold text-slate-600">Starting SupportPro Enterprise...</p>
+          <p className="text-xs font-semibold text-slate-600">Starting ResolveHub &bull; powered by HPS(OPC) Pvt. Ltd....</p>
         </div>
       </div>
     );
@@ -399,8 +421,22 @@ export const AppRoutes: React.FC = () => {
           }
         />
         <Route
-          path="/admin/audit"
-          element={<Navigate to="/admin/audit-logs" replace />}
+          path="/admin/workspaces"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+              <WorkspaceIsolationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/security"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN']}>
+              <div className="p-6 bg-white rounded-3xl border border-slate-200">
+                <AntivirusSecurityPanel />
+              </div>
+            </ProtectedRoute>
+          }
         />
 
         {/* Generic shortcut redirects for convenience */}
@@ -422,9 +458,11 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <NotificationProvider>
-          <AppRoutes />
-        </NotificationProvider>
+        <WorkspaceProvider>
+          <NotificationProvider>
+            <AppRoutes />
+          </NotificationProvider>
+        </WorkspaceProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -26,6 +26,11 @@ import { useNavigate } from 'react-router-dom';
 import { PhoneLink, EmailLink, LocationLink } from '../../components/common/ContactActions';
 import { useAuth } from '../../context/AuthContext';
 
+import { WebRTCSoftphone } from '../../components/telecaller/WebRTCSoftphone';
+import { CallTranscriber } from '../../components/telecaller/CallTranscriber';
+import { RapidGridLoggingModal } from '../../components/telecaller/RapidGridLoggingModal';
+import { Layers } from 'lucide-react';
+
 interface TelecallerDeskProps {
   onNavigate?: (page: string, ticketId?: string) => void;
 }
@@ -53,6 +58,7 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
 
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
   const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+  const [showRapidGridModal, setShowRapidGridModal] = useState(false);
 
   useEffect(() => {
     loadMyLoggedTickets();
@@ -128,6 +134,13 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowRapidGridModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-sm"
+          >
+            <Layers className="w-4 h-4" />
+            <span>⚡ Rapid Grid Logging</span>
+          </button>
+          <button
             onClick={() => setShowNewCustomerModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-sm"
           >
@@ -191,6 +204,9 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
               })}
             </div>
           </div>
+
+          {/* Live Call Speech Transcriber */}
+          <CallTranscriber />
 
           {/* Selected Customer Profile Dossier */}
           {selectedCustomer && (
@@ -409,6 +425,27 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
           preSelectedCustomer={selectedCustomer}
         />
       )}
+
+      {showRapidGridModal && (
+        <RapidGridLoggingModal
+          isOpen={showRapidGridModal}
+          onClose={() => setShowRapidGridModal(false)}
+          onBatchCompleted={() => {
+            loadMyLoggedTickets();
+            setShowRapidGridModal(false);
+          }}
+        />
+      )}
+
+      {/* Floating WebRTC CTI Softphone */}
+      <WebRTCSoftphone
+        onCustomerSelected={(phone) => {
+          handleSearch(phone);
+        }}
+        onCallStarted={(phone) => {
+          handleSearch(phone);
+        }}
+      />
     </div>
   );
 };

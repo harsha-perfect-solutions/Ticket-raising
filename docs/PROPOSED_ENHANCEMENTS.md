@@ -1,15 +1,16 @@
-# SupportPro ITSM — Feature & Architecture Enhancements Catalog
+# ResolveHub ITSM — Feature & Architecture Enhancements Catalog
+> **powered by HPS(OPC) Pvt. Ltd.**
 
 **Document Status**: Proposal & Future Roadmap  
 **Application Version**: 2.4.0  
-**Target Application**: SupportPro Enterprise ITSM  
+**Target Application**: ResolveHub Enterprise ITSM (powered by HPS(OPC) Pvt. Ltd.)  
 **Last Updated**: September 19, 2026  
 
 ---
 
 ## Executive Summary
 
-This document details recommended **product, operational, technical, and security enhancements** for the SupportPro ITSM platform. These enhancements are prioritized based on business value, ROI, and technical feasibility to take the application from a robust ITSM system to a state-of-the-art enterprise support platform.
+This document details recommended **product, operational, technical, and security enhancements** for the ResolveHub ITSM platform (powered by HPS(OPC) Pvt. Ltd.). These enhancements are prioritized based on business value, ROI, and technical feasibility to take the application from a robust ITSM system to a state-of-the-art enterprise support platform.
 
 ---
 

@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -26,10 +27,10 @@ interface LoginPageProps {
   onNavigateToRegister: () => void;
 }
 
-type AuthMode = 'LOGIN' | 'FORGOT_PASSWORD' | 'RESET_PASSWORD';
+type AuthMode = 'LOGIN' | 'FORGOT_PASSWORD' | 'RESET_PASSWORD' | 'MFA_CHALLENGE';
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) => {
-  const { login, switchDemoRole } = useAuth();
+  const { login, verifyMfaLogin, switchDemoRole } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('LOGIN');
 
   // Login form states with Remember Me prefill
@@ -39,6 +40,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
   const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('supportpro_remember_email'));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // SEC-02: MFA Challenge states
+  const [mfaTempToken, setMfaTempToken] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [backupCodeInput, setBackupCodeInput] = useState('');
 
   // Forgot / Reset Password flow states
   const [resetEmail, setResetEmail] = useState('');
@@ -66,7 +73,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
     setIsLoading(true);
     setError(null);
     try {
-      await login(trimmedEmail, password, rememberMe);
+      const result = await login(trimmedEmail, password, rememberMe);
+      if (result && result.mfaRequired) {
+        setMfaTempToken(result.tempToken || '');
+        setAuthMode('MFA_CHALLENGE');
+        setIsLoading(false);
+        return;
+      }
       if (rememberMe) {
         localStorage.setItem('supportpro_remember_email', trimmedEmail);
       } else {
@@ -74,6 +87,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!useBackupCode && totpCode.length !== 6) {
+      setError('Please enter a 6-digit verification code.');
+      return;
+    }
+    if (useBackupCode && !backupCodeInput.trim()) {
+      setError('Please enter your emergency backup code.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await verifyMfaLogin(
+        mfaTempToken,
+        useBackupCode ? undefined : totpCode,
+        useBackupCode ? backupCodeInput.trim() : undefined,
+        rememberMe
+      );
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -203,12 +243,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-12 h-12 rounded-2xl bg-[#2563eb] text-white flex items-center justify-center shadow-md shadow-blue-500/20 mx-auto">
-          <Zap className="w-6 h-6 fill-white text-white" />
+      {/* Ambient background glow */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 mx-auto ring-4 ring-blue-500/10 mb-3">
+          <Zap className="w-7 h-7 fill-white text-white" />
         </div>
-        <h2 className="mt-4 text-2xl font-extrabold text-slate-900 tracking-tight">SUPPORTPRO</h2>
-        <p className="mt-1 text-xs text-slate-500 font-medium">Customer & Telecaller Ticket Management Platform</p>
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1">
+          <span>Resolve</span>
+          <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">Hub</span>
+        </h2>
+        <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/90 border border-slate-200/80 shadow-xs">
+          <span className="text-[11px] font-medium text-slate-500">powered by</span>
+          <span className="text-[11px] font-extrabold text-slate-800 tracking-tight">HPS(OPC) Pvt. Ltd.</span>
+        </div>
+        <p className="mt-2 text-xs text-slate-500 font-medium">Enterprise Service Desk & Operations Platform</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl px-4 sm:px-0 space-y-6">
@@ -335,6 +386,131 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
                 </button>
               </div>
             </>
+          )}
+
+          {/* MODE: MFA 2-STEP AUTHENTICATOR CHALLENGE */}
+          {authMode === 'MFA_CHALLENGE' && (
+            <div className="space-y-5 animate-fade-in">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">Two-Factor Authentication</h3>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      RFC 6238
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Signing in as <span className="font-semibold text-slate-700">{email}</span>
+                  </p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleMfaSubmit} className="space-y-4">
+                {!useBackupCode ? (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Enter 6-Digit Code from Authenticator App
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <input
+                        type="text"
+                        maxLength={6}
+                        required
+                        autoFocus
+                        placeholder="••••••"
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="w-full pl-10 pr-3.5 py-3 bg-[#f8fafc] border border-slate-200 rounded-xl text-center font-mono text-xl tracking-[0.3em] font-bold text-slate-900 placeholder-slate-300 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-colors"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Enter Emergency Recovery Backup Code
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        placeholder="e.g. 8F9A-2C4B"
+                        value={backupCodeInput}
+                        onChange={(e) => setBackupCodeInput(e.target.value.toUpperCase())}
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl font-mono text-sm font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Demo test code banner */}
+                <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-700 flex items-center justify-between">
+                  <span>💡 Test code: <strong className="font-mono">123456</strong> or authenticator app</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotpCode('123456');
+                      setUseBackupCode(false);
+                    }}
+                    className="font-bold underline hover:text-indigo-900 cursor-pointer"
+                  >
+                    Auto-Fill
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setUseBackupCode(!useBackupCode)}
+                    className="text-indigo-600 hover:text-indigo-700 font-semibold cursor-pointer"
+                  >
+                    {useBackupCode ? 'Use 6-Digit Authenticator Code' : 'Use Emergency Backup Code'}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('LOGIN');
+                      setError(null);
+                    }}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Verify & Sign In</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
 
           {/* MODE 2: FORGOT PASSWORD */}
@@ -591,6 +767,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
               );
             })}
           </div>
+        </div>
+
+        {/* Footer Attribution */}
+        <div className="text-center text-xs text-slate-400 font-medium pt-2 pb-4 select-none">
+          ResolveHub &copy; {new Date().getFullYear()} &bull; Powered by <span className="font-semibold text-slate-600">HPS(OPC) Pvt. Ltd.</span> All rights reserved.
         </div>
       </div>
     </div>

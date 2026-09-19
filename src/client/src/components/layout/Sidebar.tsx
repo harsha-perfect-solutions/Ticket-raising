@@ -15,6 +15,7 @@ import {
   Moon,
   Sun,
   ShieldCheck,
+  Building2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -87,6 +88,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
       icon: ScrollText,
       roles: ['ADMIN', 'MANAGER'],
     },
+    {
+      id: 'workspaces',
+      label: 'Tenant Workspaces',
+      icon: Building2,
+      roles: ['ADMIN', 'MANAGER'],
+      badge: 'Isolated',
+    },
+    {
+      id: 'security',
+      label: 'Antivirus & Security',
+      icon: ShieldCheck,
+      roles: ['ADMIN'],
+    },
   ];
 
   const visibleItems = navItems.filter((item) => item.roles.includes(role));
@@ -103,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
   return (
     <aside className="w-64 bg-white border-r border-slate-200/90 p-4 flex flex-col justify-between shrink-0 h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto shadow-[1px_0_4px_0_rgba(0,0,0,0.01)]">
       <div className="space-y-6">
-        {/* Brand Header matching screenshot */}
+        {/* Brand Header */}
         <div
           onClick={() => {
             if (onNavigate) onNavigate('dashboard');
@@ -111,15 +125,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
           }}
           className="cursor-pointer flex items-center gap-3 px-1 py-0.5 group"
         >
-          <div className="w-9 h-9 rounded-xl bg-[#2563eb] text-white flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-all">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all ring-2 ring-blue-500/15">
             <Zap className="w-5 h-5 fill-white text-white" />
           </div>
-          <div>
-            <div className="font-extrabold text-slate-900 text-sm tracking-tight leading-none">
-              SUPPORT PRO
+          <div className="flex flex-col min-w-0">
+            <div className="font-black text-slate-900 text-base tracking-tight leading-tight flex items-center gap-1">
+              <span>Resolve</span>
+              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Hub</span>
             </div>
-            <p className="text-[10px] text-slate-400 font-medium mt-1 leading-none">
-              Ticket Management Platform
+            <p className="text-[10px] text-slate-500 font-medium leading-none mt-0.5 truncate tracking-tight">
+              powered by <span className="font-semibold text-slate-700">HPS(OPC) Pvt. Ltd.</span>
             </p>
           </div>
         </div>
@@ -205,12 +220,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
             onClick={logout}
             type="button"
             aria-label="Sign out"
-            title="Sign out of SupportPro"
+            title="Sign out of ResolveHub"
             className="w-full pt-2 border-t border-slate-200/60 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:text-rose-600 transition-colors py-1 rounded-lg hover:bg-rose-50/70 group cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-600 transition-colors" />
             <span>Sign Out</span>
           </button>
+        </div>
+
+        {/* Brand Footnote */}
+        <div className="pt-2 text-center select-none">
+          <p className="text-[10px] text-slate-400 font-medium tracking-tight">
+            ResolveHub &bull; <span className="text-slate-500">HPS(OPC) Pvt. Ltd.</span>
+          </p>
         </div>
       </div>
     </aside>

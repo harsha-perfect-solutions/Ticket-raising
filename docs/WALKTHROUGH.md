@@ -1,4 +1,5 @@
-# SupportPro ITSM — Feature Walkthrough & Testing Guide
+# ResolveHub ITSM — Feature Walkthrough & Testing Guide
+> **powered by HPS(OPC) Pvt. Ltd.**
 
 This walkthrough provides step-by-step guidance for testing and verifying all features across the 5 system roles (`CUSTOMER`, `TELECALLER`, `AGENT`, `MANAGER`, `ADMIN`).
 
@@ -67,6 +68,23 @@ This walkthrough provides step-by-step guidance for testing and verifying all fe
    - Inspect system timeline: verify **NO raw JSON string dumps** appear in the Details column.
    - Verify actions are formatted in plain English (e.g. `Moved from In Progress to Escalated`, `User Provisioned`, `SLA Policy Created`) with formatted key-value badges.
    - Click **Export to CSV** and verify `audit_logs_YYYY-MM-DD.csv` downloads cleanly.
+
+---
+
+### 1.6 Security, Compliance & Workspace Isolation (Category 5: `SEC-01`, `SEC-02`, `SEC-03`)
+1. **Asynchronous Cloud Antivirus Pipeline (`SEC-01`)**:
+   - Navigate to **Admin Console → Antivirus Security Panel** (`/admin/security/antivirus`).
+   - Inspect the real-time pipeline status: total files scanned, clean vs quarantined ratio, and ClamAV v1.2 / AWS GuardDuty simulation logs.
+   - Upload an attachment on any ticket: verify the attachment displays the `🛡️ ClamAV Verified Clean` security verification badge.
+2. **Multi-Factor Authentication / TOTP (`SEC-02`)**:
+   - Log out and log in with an Admin account (`admin@supportpro.com` or any admin).
+   - Verify the 2-step authentication screen prompts for the 6-digit TOTP code.
+   - Enter your authenticator code (or click "Auto-fill Demo Code" `123456` in staging) or use an 8-character backup recovery code.
+   - Open user settings / profile modal: test the **Enable/Manage 2FA** dialog with interactive QR code scanner enrollment and 8 backup emergency codes.
+3. **Multi-Tenant Workspace Isolation (`SEC-03`)**:
+   - Inspect the top navigation bar: notice the **Enterprise Workspace Switcher** dropdown (`Acme Corp Global`, `Apex Financial Services`, `Nova Health Systems`).
+   - Switch workspace from `Acme Corp` to `Apex Financial`: verify active tenant badge updates and all tickets and customer records scope strictly to the selected enterprise workspace.
+   - Navigate to **Admin → Workspace Isolation & Multi-Tenancy** (`/admin/workspaces`): view enterprise quotas, compliance frameworks (SOC2, PCI-DSS, HIPAA), and provision new tenant schemas.
 
 ---
 

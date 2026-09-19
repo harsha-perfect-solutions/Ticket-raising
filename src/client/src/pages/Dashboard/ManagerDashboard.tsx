@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ticketApi, analyticsApi, adminApi } from '../../services/api';
 import { Ticket, DashboardStats } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { KanbanDashboard } from '../../components/dashboard/KanbanDashboard';
 import {
   Layers,
   AlertTriangle,
@@ -16,18 +17,26 @@ import {
   PlusCircle,
   Sliders,
   CheckCircle2,
+  Kanban,
+  LayoutDashboard,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
 
+import { PredictiveSlaForecaster } from '../../components/manager/PredictiveSlaForecaster';
+import { AutoAllocationSettingsModal } from '../../components/manager/AutoAllocationSettingsModal';
+import { CustomAnalyticsReportBuilder } from '../../components/manager/CustomAnalyticsReportBuilder';
+
 export const ManagerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [viewMode, setViewMode] = useState<'ANALYTICS' | 'KANBAN'>('ANALYTICS');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [escalatedTickets, setEscalatedTickets] = useState<Ticket[]>([]);
   const [teamTickets, setTeamTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAllocationModal, setShowAllocationModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -83,7 +92,35 @@ export const ManagerDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* View Mode Switcher */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button
+              onClick={() => setViewMode('ANALYTICS')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'ANALYTICS' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" /> Portal Overview
+            </button>
+            <button
+              onClick={() => setViewMode('KANBAN')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'KANBAN' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Kanban className="h-3.5 w-3.5" /> Kanban Board
+            </button>
+          </div>
+
+          <Link
+            to="/manager/telecaller-desk"
+            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm flex items-center gap-2 transition-all"
+          >
+            <Layers className="w-4 h-4" />
+            <span>Telecaller Desk</span>
+          </Link>
+
           <Link
             to="/manager/raise-ticket"
             className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm flex items-center gap-2 transition-all"
@@ -100,6 +137,51 @@ export const ManagerDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {viewMode === 'KANBAN' ? (
+        <KanbanDashboard
+          onNavigateTicket={(tId) => navigate(`/manager/tickets/${tId}`)}
+          onRaiseTicket={() => navigate('/manager/raise-ticket')}
+        />
+      ) : (
+        <div className="space-y-6">
+
+      {/* Real-Time Telecaller Desk Live Status Card */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm shrink-0">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+            </span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-900">
+                Live Telecaller Desk Velocity
+              </h4>
+              <span className="rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                🟢 Socket.IO Active
+              </span>
+            </div>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Telecallers active: <span className="font-bold text-amber-950">3 online</span> • Live inbound/outbound rapid logging enabled
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/manager/telecaller-desk"
+          className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-all whitespace-nowrap"
+        >
+          View Telecaller Desk →
+        </Link>
+      </div>
+
+      {/* Real-Time Predictive SLA Breach Risk Radar */}
+      <PredictiveSlaForecaster onReassignTicket={(ticketId) => navigate(`/manager/tickets/${ticketId}`)} />
+
+      {/* Custom BI Analytics & Report Builder */}
+      <CustomAnalyticsReportBuilder stats={stats} />
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -302,6 +384,8 @@ export const ManagerDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 };

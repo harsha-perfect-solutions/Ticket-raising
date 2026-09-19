@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { PredictiveSlaForecaster } from '../../components/manager/PredictiveSlaForecaster';
+import { CustomAnalyticsReportBuilder } from '../../components/manager/CustomAnalyticsReportBuilder';
 import { analyticsApi, adminApi, ticketApi } from '../../services/api';
 import { DashboardStats, SlaRule, Ticket } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { KanbanDashboard } from '../../components/dashboard/KanbanDashboard';
 import {
   Sparkles,
   PhoneCall,
@@ -18,6 +21,9 @@ import {
   FileText,
   Sliders,
   Check,
+  PlusCircle,
+  Kanban,
+  LayoutDashboard,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -66,6 +72,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
       }
     }
   };
+  const [viewMode, setViewMode] = useState<'ANALYTICS' | 'KANBAN'>('ANALYTICS');
   const [slaRules, setSlaRules] = useState<SlaRule[]>([]);
   const [recentEscalatedTickets, setRecentEscalatedTickets] = useState<Ticket[]>([]);
   const [period, setPeriod] = useState<string>('all');
@@ -145,7 +152,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* View Mode Toggle Switch */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button
+              onClick={() => setViewMode('ANALYTICS')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'ANALYTICS' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" /> Analytics Overview
+            </button>
+            <button
+              onClick={() => setViewMode('KANBAN')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'KANBAN' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Kanban className="h-3.5 w-3.5" /> Kanban Board
+            </button>
+          </div>
+
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold shadow-sm">
             <span className="text-slate-500">Period:</span>
             <select
@@ -169,13 +196,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
               if (onOpenNewTicket) onOpenNewTicket();
               else handleNav('raise-ticket');
             }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold shadow-sm transition-all"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>+ Raise Ticket</span>
+            <PlusCircle className="w-4 h-4" />
+            <span>+ Raise a Support Ticket</span>
           </button>
         </div>
       </div>
+
+      {viewMode === 'KANBAN' ? (
+        <KanbanDashboard
+          onNavigateTicket={(tId) => handleNav('tickets', tId)}
+          onRaiseTicket={() => handleNav('raise-ticket')}
+        />
+      ) : (
+        <div className="space-y-6">
+
+      {/* Real-Time Telecaller Desk Live Status Card for Admin */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm shrink-0">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+            </span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-900">
+                Live Telecaller Service Desk Velocity
+              </h4>
+              <span className="rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                🟢 Socket.IO Active
+              </span>
+            </div>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Active Telecaller CTI softphones: <span className="font-bold text-amber-950">Online</span> • Real-time call logging & auto-allocation active
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => handleNav('telecaller-desk')}
+          className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-all whitespace-nowrap"
+        >
+          View Telecaller Desk →
+        </button>
+      </div>
+
+      {/* Real-Time Predictive SLA Breach Risk Radar */}
+      <PredictiveSlaForecaster onReassignTicket={(ticketId) => handleNav(`tickets/${ticketId}`)} />
+
+      {/* Custom BI Analytics & Report Builder */}
+      <CustomAnalyticsReportBuilder stats={stats} />
 
       {/* 5 Top KPI Cards Grid matching Screenshot 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -514,6 +586,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
           </table>
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 };

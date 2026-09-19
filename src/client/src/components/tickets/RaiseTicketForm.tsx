@@ -183,7 +183,7 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
   const isTelecaller = user?.role === 'TELECALLER';
   const isStaff = ['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER'].includes(user?.role || '');
 
-  const DRAFT_STORAGE_KEY = `supportpro_ticket_draft_${user?.id || 'anon'}_${rolePrefix}`;
+  const DRAFT_STORAGE_KEY = `resolvehub_ticket_draft_${user?.id || 'anon'}_${rolePrefix}`;
 
   // Category & Routing state
   const [categories, setCategories] = useState<Category[]>([]);
