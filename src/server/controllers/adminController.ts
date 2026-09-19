@@ -394,12 +394,49 @@ export async function listUsers(req: AuthRequest, res: Response): Promise<void> 
 export async function createUser(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { email, password, fullName, phone, role, departmentId } = req.body;
-    if (!email || !password || !fullName || !role) {
-      res.status(400).json({ success: false, message: 'Email, password, fullName, and role are required.' });
+    const cleanFullName = typeof fullName === 'string' ? fullName.trim() : '';
+    const cleanEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+    const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+
+    if (!cleanFullName || cleanFullName.length < 2 || /^\d+$/.test(cleanFullName)) {
+      res.status(400).json({ success: false, message: 'Please enter a valid full name (at least 2 characters, not purely numeric).' });
       return;
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+      return;
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+      return;
+    }
+
+    const validRoles = ['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER', 'CUSTOMER'];
+    if (!role || !validRoles.includes(role)) {
+      res.status(400).json({ success: false, message: 'Invalid system role specified.' });
+      return;
+    }
+
+    if (['AGENT', 'MANAGER'].includes(role)) {
+      if (!departmentId) {
+        res.status(400).json({ success: false, message: 'Department is required for Agents and Managers.' });
+        return;
+      }
+      const deptExists = await prisma.department.findUnique({ where: { id: departmentId } });
+      if (!deptExists) {
+        res.status(400).json({ success: false, message: 'Specified department does not exist.' });
+        return;
+      }
+    }
+
+    if (cleanPhone && !/^[0-9]{10}$/.test(cleanPhone)) {
+      res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) {
       res.status(400).json({ success: false, message: 'User with this email already exists.' });
       return;
@@ -410,10 +447,10 @@ export async function createUser(req: AuthRequest, res: Response): Promise<void>
 
     const user = await prisma.user.create({
       data: {
-        email: email.toLowerCase().trim(),
+        email: cleanEmail,
         passwordHash,
-        fullName,
-        phone: phone || null,
+        fullName: cleanFullName,
+        phone: cleanPhone || null,
         role,
         departmentId: departmentId || null,
       },
@@ -454,10 +491,46 @@ export async function updateUser(req: AuthRequest, res: Response): Promise<void>
     }
 
     const updateData: any = {};
-    if (fullName !== undefined) updateData.fullName = fullName.trim();
-    if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
-    if (role !== undefined) updateData.role = role;
-    if (departmentId !== undefined) updateData.departmentId = departmentId || null;
+    if (fullName !== undefined) {
+      const cleanFullName = typeof fullName === 'string' ? fullName.trim() : '';
+      if (!cleanFullName || cleanFullName.length < 2 || /^\d+$/.test(cleanFullName)) {
+        res.status(400).json({ success: false, message: 'Please enter a valid full name (at least 2 characters, not purely numeric).' });
+        return;
+      }
+      updateData.fullName = cleanFullName;
+    }
+    if (phone !== undefined) {
+      const cleanPhone = typeof phone === 'string' ? phone.trim() : '';
+      if (cleanPhone) {
+        if (!/^[0-9]{10}$/.test(cleanPhone)) {
+          res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
+          return;
+        }
+        updateData.phone = cleanPhone;
+      } else {
+        updateData.phone = null;
+      }
+    }
+    if (role !== undefined) {
+      const validRoles = ['ADMIN', 'MANAGER', 'AGENT', 'TELECALLER', 'CUSTOMER'];
+      if (!validRoles.includes(role)) {
+        res.status(400).json({ success: false, message: 'Invalid system role specified.' });
+        return;
+      }
+      updateData.role = role;
+    }
+    if (departmentId !== undefined) {
+      if (departmentId) {
+        const deptExists = await prisma.department.findUnique({ where: { id: departmentId } });
+        if (!deptExists) {
+          res.status(400).json({ success: false, message: 'Specified department does not exist.' });
+          return;
+        }
+        updateData.departmentId = departmentId;
+      } else {
+        updateData.departmentId = null;
+      }
+    }
     if (isActive !== undefined) updateData.isActive = Boolean(isActive);
 
     const updatedUser = await prisma.user.update({

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   ArrowLeft,
@@ -15,7 +16,16 @@ import {
   EyeOff,
   ShieldCheck,
   Loader2,
+  MapPin,
+  Shield,
 } from 'lucide-react';
+import {
+  isValid10DigitPhone,
+  sanitize10DigitPhone,
+  isValidFullName,
+  PHONE_PLACEHOLDER,
+  PHONE_ERROR_MESSAGE,
+} from '../../utils/validation';
 
 interface RegisterPageProps {
   onNavigateToLogin: () => void;
@@ -118,6 +128,16 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin })
       return;
     }
 
+    if (!isValidFullName(trimmedName)) {
+      setError('Please enter a valid full name (at least 2 characters, not purely numeric).');
+      return;
+    }
+
+    if (!isValid10DigitPhone(trimmedPhone)) {
+      setError(PHONE_ERROR_MESSAGE);
+      return;
+    }
+
     if (!emailValidation.isValid) {
       setError('Please provide a valid email address.');
       return;
@@ -195,10 +215,12 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin })
                   <input
                     type="tel"
                     required
+                    maxLength={10}
+                    inputMode="numeric"
                     autoComplete="tel"
-                    placeholder="+1 555-0199"
+                    placeholder={PHONE_PLACEHOLDER}
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, phone: sanitize10DigitPhone(e.target.value) })}
                     className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
                   />
                 </div>

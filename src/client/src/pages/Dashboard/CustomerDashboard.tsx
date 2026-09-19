@@ -86,42 +86,66 @@ export const CustomerDashboard: React.FC = () => {
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/customer/tickets')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/customer/tickets'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Total Requests</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">Total Requests</p>
             <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{totalTickets}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
             <FileText className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/customer/tickets?status=active')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/customer/tickets?status=active'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Active / In Progress</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">Active / In Progress</p>
             <h3 className="text-2xl font-extrabold text-amber-600 mt-1">{openTickets}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
             <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/customer/tickets?status=resolved')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/customer/tickets?status=resolved'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Resolved & Closed</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-emerald-600 transition-colors">Resolved & Closed</p>
             <h3 className="text-2xl font-extrabold text-emerald-600 mt-1">{resolvedTickets}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/customer/tickets?slaStatus=critical')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/customer/tickets?slaStatus=critical'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">SLA Critical Alerts</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-rose-600 transition-colors">SLA Critical Alerts</p>
             <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{nearBreachTickets}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-all">
             <AlertTriangle className="w-5 h-5" />
           </div>
         </div>
@@ -207,10 +231,17 @@ export const CustomerDashboard: React.FC = () => {
                       />
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/customer/tickets/${t.id}`);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                      >
                         <span>Track</span>
                         <ArrowRight className="w-3.5 h-3.5" />
-                      </span>
+                      </button>
                     </td>
                   </tr>
                 ))}

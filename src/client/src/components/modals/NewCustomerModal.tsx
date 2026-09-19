@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { customerApi } from '../../services/api';
 import { Customer } from '../../types';
 import { X, UserPlus, Building, Phone, Mail, MapPin } from 'lucide-react';
+import {
+  isValid10DigitPhone,
+  sanitize10DigitPhone,
+  isValidFullName,
+  isValidEmail,
+  PHONE_PLACEHOLDER,
+  PHONE_ERROR_MESSAGE,
+} from '../../utils/validation';
 
 interface NewCustomerModalProps {
   isOpen: boolean;
@@ -18,7 +26,7 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: '',
-    phone: initialPhone,
+    phone: initialPhone ? sanitize10DigitPhone(initialPhone) : '',
     email: '',
     company: '',
     address: '',
@@ -31,15 +39,31 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.phone.trim()) {
-      setError('Customer Name and Phone Number are required.');
+    if (!isValidFullName(formData.name)) {
+      setError('Please enter a valid customer full name (at least 2 characters).');
+      return;
+    }
+    if (!isValid10DigitPhone(formData.phone)) {
+      setError(PHONE_ERROR_MESSAGE);
+      return;
+    }
+    if (formData.email.trim() && !isValidEmail(formData.email)) {
+      setError('Please enter a valid email address.');
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      const res = await customerApi.create(formData);
+      const res = await customerApi.create({
+        ...formData,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim() || undefined,
+        company: formData.company.trim() || undefined,
+        address: formData.address.trim() || undefined,
+        notes: formData.notes.trim() || undefined,
+      });
       if (res.data.success) {
         onCustomerCreated(res.data.customer);
         onClose();
@@ -98,11 +122,13 @@ export const NewCustomerModal: React.FC<NewCustomerModalProps> = ({
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
-                  type="text"
+                  type="tel"
                   required
-                  placeholder="+1 555-0199"
+                  maxLength={10}
+                  inputMode="numeric"
+                  placeholder={PHONE_PLACEHOLDER}
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: sanitize10DigitPhone(e.target.value) })}
                   className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
                 />
               </div>

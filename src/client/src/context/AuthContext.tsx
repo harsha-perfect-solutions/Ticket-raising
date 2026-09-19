@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   demoAccounts: User[];
-  login: (email: string, password?: string) => Promise<void>;
+  login: (email: string, password?: string, rememberMe?: boolean) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   switchDemoUser: (userId: string) => Promise<void>;
@@ -19,10 +19,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
-    const cached = localStorage.getItem('supportpro_user');
+    const cached =
+      localStorage.getItem('supportpro_user') || sessionStorage.getItem('supportpro_user');
     return cached ? JSON.parse(cached) : null;
   });
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('supportpro_token'));
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem('supportpro_token') || sessionStorage.getItem('supportpro_token')
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [demoAccounts, setDemoAccounts] = useState<User[]>([]);
 
@@ -43,7 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkAuth = async () => {
-    const savedToken = localStorage.getItem('supportpro_token');
+    const savedToken =
+      localStorage.getItem('supportpro_token') || sessionStorage.getItem('supportpro_token');
     if (!savedToken) {
       setIsLoading(false);
       return;
@@ -53,11 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authApi.getMe();
       if (res.data.success) {
         setUser(res.data.user);
-        localStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+        if (localStorage.getItem('supportpro_token')) {
+          localStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+        } else {
+          sessionStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+        }
       }
     } catch (err) {
       localStorage.removeItem('supportpro_token');
       localStorage.removeItem('supportpro_user');
+      localStorage.removeItem('supportpro_remember_me');
+      sessionStorage.removeItem('supportpro_token');
+      sessionStorage.removeItem('supportpro_user');
       setUser(null);
       setToken(null);
     } finally {
@@ -65,15 +76,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string = 'password123') => {
+  const login = async (
+    email: string,
+    password: string = 'password123',
+    rememberMe: boolean = false
+  ) => {
     setIsLoading(true);
     try {
       const res = await authApi.login({ email, password });
       if (res.data.success) {
         setToken(res.data.token);
         setUser(res.data.user);
-        localStorage.setItem('supportpro_token', res.data.token);
-        localStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+        if (rememberMe) {
+          localStorage.setItem('supportpro_token', res.data.token);
+          localStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+          localStorage.setItem('supportpro_remember_me', 'true');
+          sessionStorage.removeItem('supportpro_token');
+          sessionStorage.removeItem('supportpro_user');
+        } else {
+          sessionStorage.setItem('supportpro_token', res.data.token);
+          sessionStorage.setItem('supportpro_user', JSON.stringify(res.data.user));
+          localStorage.removeItem('supportpro_token');
+          localStorage.removeItem('supportpro_user');
+          localStorage.removeItem('supportpro_remember_me');
+        }
       }
     } finally {
       setIsLoading(false);
@@ -98,6 +124,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     localStorage.removeItem('supportpro_token');
     localStorage.removeItem('supportpro_user');
+    localStorage.removeItem('supportpro_remember_me');
+    sessionStorage.removeItem('supportpro_token');
+    sessionStorage.removeItem('supportpro_user');
     setUser(null);
     setToken(null);
   };

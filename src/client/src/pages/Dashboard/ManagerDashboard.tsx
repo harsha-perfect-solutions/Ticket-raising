@@ -103,42 +103,66 @@ export const ManagerDashboard: React.FC = () => {
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/manager/tickets?scope=my_department')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/manager/tickets?scope=my_department'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Total Department Tickets</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-purple-600 transition-colors">Total Department Tickets</p>
             <h3 className="text-2xl font-extrabold text-slate-900 mt-1">{counts.total}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
             <Layers className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/manager/tickets?status=ESCALATED')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/manager/tickets?status=ESCALATED'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Escalated Tickets</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-rose-600 transition-colors">Escalated Tickets</p>
             <h3 className="text-2xl font-extrabold text-rose-600 mt-1">{counts.escalated}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-all">
             <ShieldAlert className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/manager/tickets?slaStatus=BREACHED')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/manager/tickets?slaStatus=BREACHED'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">SLA Compliance Rate</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-emerald-600 transition-colors">SLA Compliance Rate</p>
             <h3 className="text-2xl font-extrabold text-emerald-600 mt-1">94.8%</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/manager/tickets?status=NEW')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/manager/tickets?status=NEW'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Unassigned Backlog</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">Unassigned Backlog</p>
             <h3 className="text-2xl font-extrabold text-amber-600 mt-1">{counts.new}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all">
             <Clock className="w-5 h-5" />
           </div>
         </div>
@@ -157,7 +181,7 @@ export const ManagerDashboard: React.FC = () => {
             </div>
           </div>
           <Link
-            to="/manager/escalations"
+            to="/manager/tickets?status=ESCALATED"
             className="text-xs font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1"
           >
             <span>View All Escalations</span>
@@ -261,7 +285,16 @@ export const ManagerDashboard: React.FC = () => {
                     />
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className="text-xs font-bold text-purple-600 hover:text-purple-700">Review</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/manager/tickets/${t.id}`);
+                      }}
+                      className="text-xs font-bold text-purple-600 hover:text-purple-700 cursor-pointer"
+                    >
+                      Review
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -18,6 +18,7 @@ import {
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
+import { EmailLink } from '../../components/common/ContactActions';
 
 export const AgentDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -91,42 +92,66 @@ export const AgentDashboard: React.FC = () => {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/agent/tickets?scope=assigned_to_me')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/agent/tickets?scope=assigned_to_me'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">My Assigned Tickets</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">My Assigned Tickets</p>
             <h3 className="text-2xl font-extrabold text-blue-600 mt-1">{assignedTickets.length}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
             <UserCheck className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/agent/tickets?priority=CRITICAL')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/agent/tickets?priority=CRITICAL'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">High / Critical Urgency</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-rose-600 transition-colors">High / Critical Urgency</p>
             <h3 className="text-2xl font-extrabold text-rose-600 mt-1">{criticalAssigned.length}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-all">
             <Flame className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/agent/tickets?status=IN_PROGRESS')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/agent/tickets?status=IN_PROGRESS'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">In Active Resolution</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">In Active Resolution</p>
             <h3 className="text-2xl font-extrabold text-amber-600 mt-1">{inProgressAssigned.length}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all">
             <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/agent/tickets?status=WAITING_FOR_CUSTOMER')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/agent/tickets?status=WAITING_FOR_CUSTOMER'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Waiting on Customer</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-purple-600 transition-colors">Waiting on Customer</p>
             <h3 className="text-2xl font-extrabold text-purple-600 mt-1">{waitingCustomer.length}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
             <Headphones className="w-5 h-5" />
           </div>
         </div>
@@ -199,7 +224,11 @@ export const AgentDashboard: React.FC = () => {
                     </td>
                     <td className="px-5 py-3.5">
                       <p className="font-semibold text-slate-700">{t.customer?.name}</p>
-                      <p className="text-[11px] text-slate-400">{t.customer?.email}</p>
+                      {t.customer?.email && (
+                        <div className="mt-0.5">
+                          <EmailLink email={t.customer?.email} className="text-[11px] text-slate-500 font-normal" />
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       <PriorityBadge priority={t.priority} />
@@ -216,10 +245,17 @@ export const AgentDashboard: React.FC = () => {
                       />
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/agent/tickets/${t.id}`);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                      >
                         <span>Work on</span>
                         <ArrowRight className="w-3.5 h-3.5" />
-                      </span>
+                      </button>
                     </td>
                   </tr>
                 ))}

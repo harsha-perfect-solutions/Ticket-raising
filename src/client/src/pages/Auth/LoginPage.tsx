@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { authApi } from '../../services/api';
 import {
   Sparkles,
   Shield,
@@ -15,6 +16,9 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  CheckCircle2,
+  ArrowLeft,
+  KeyRound,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -22,14 +26,30 @@ interface LoginPageProps {
   onNavigateToRegister: () => void;
 }
 
+type AuthMode = 'LOGIN' | 'FORGOT_PASSWORD' | 'RESET_PASSWORD';
+
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) => {
   const { login, switchDemoRole } = useAuth();
-  const [email, setEmail] = useState('');
+  const [authMode, setAuthMode] = useState<AuthMode>('LOGIN');
+
+  // Login form states with Remember Me prefill
+  const [email, setEmail] = useState(() => localStorage.getItem('supportpro_remember_email') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => !!localStorage.getItem('supportpro_remember_email'));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Forgot / Reset Password flow states
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +66,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
     setIsLoading(true);
     setError(null);
     try {
-      await login(trimmedEmail, password);
+      await login(trimmedEmail, password, rememberMe);
       if (rememberMe) {
         localStorage.setItem('supportpro_remember_email', trimmedEmail);
       } else {
@@ -56,6 +76,85 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
       setError(err.response?.data?.message || 'Invalid email or password.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedEmail = resetEmail.trim();
+    if (!trimmedEmail) {
+      setResetError('Please enter your registered email address.');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    setResetError(null);
+    setResetSuccessMessage(null);
+
+    try {
+      const res = await authApi.forgotPassword(trimmedEmail);
+      if (res.data.success) {
+        setResetSuccessMessage(res.data.message);
+        if (res.data.resetToken) {
+          // In development/demo environment, automatically populate resetToken and transition to Reset Password
+          setResetToken(res.data.resetToken);
+          setAuthMode('RESET_PASSWORD');
+        }
+      }
+    } catch (err: any) {
+      setResetError(err.response?.data?.message || 'Failed to process request. Please try again.');
+    } finally {
+      setIsSubmittingReset(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword) {
+      setResetError('Please enter a new password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError('Passwords do not match. Please re-type them.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setResetError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setResetError('Password must include at least one uppercase letter.');
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setResetError('Password must include at least one lowercase letter.');
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setResetError('Password must include at least one number.');
+      return;
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+      setResetError('Password must include at least one special character.');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    setResetError(null);
+
+    try {
+      const res = await authApi.resetPassword({ token: resetToken, newPassword });
+      if (res.data.success) {
+        setEmail(resetEmail);
+        setPassword('');
+        setResetSuccessMessage(res.data.message || 'Password successfully reset! You can now log in.');
+        setResetError(null);
+        setAuthMode('LOGIN');
+      }
+    } catch (err: any) {
+      setResetError(err.response?.data?.message || 'Failed to reset password. Please request a new link.');
+    } finally {
+      setIsSubmittingReset(false);
     }
   };
 
@@ -113,106 +212,347 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister }) =>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl px-4 sm:px-0 space-y-6">
-        {/* Main Login Box */}
+        {/* Main Login / Forgot Password Box */}
         <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-6">
-          {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-fade-in">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+          {resetSuccessMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-start gap-2.5 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Password Reset Instructions</p>
+                <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">{resetSuccessMessage}</p>
+              </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="login-email" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  id="login-email"
-                  type="email"
-                  required
-                  autoComplete="username"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
-                />
-              </div>
-            </div>
+          {/* MODE 1: LOGIN */}
+          {authMode === 'LOGIN' && (
+            <>
+              {error && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
 
-            <div>
-              <label htmlFor="login-password" className="block text-xs font-bold text-slate-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
-                />
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="login-email" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      id="login-email"
+                      type="email"
+                      required
+                      autoComplete="username"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="login-password" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                    />
+                    <span>Remember me</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('FORGOT_PASSWORD');
+                      setResetEmail(email);
+                      setResetError(null);
+                      setResetSuccessMessage(null);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  tabIndex={-1}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Signing In...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In to Workspace</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
+                <span>Customer without an account?</span>
+                <button
+                  onClick={onNavigateToRegister}
+                  className="text-blue-600 hover:text-blue-700 font-bold"
+                >
+                  Create Account →
                 </button>
               </div>
-            </div>
+            </>
+          )}
 
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                />
-                <span>Remember me</span>
-              </label>
-              <span className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                Forgot password?
-              </span>
-            </div>
+          {/* MODE 2: FORGOT PASSWORD */}
+          {authMode === 'FORGOT_PASSWORD' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('LOGIN');
+                    setResetError(null);
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  title="Back to Login"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Forgot Password</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Enter your registered email to reset your account password.
+                  </p>
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Signing In...</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign In to Workspace</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
+              {resetError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{resetError}</span>
+                </div>
               )}
-            </button>
-          </form>
 
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
-            <span>Customer without an account?</span>
-            <button
-              onClick={onNavigateToRegister}
-              className="text-blue-600 hover:text-blue-700 font-bold"
-            >
-              Create Account →
-            </button>
-          </div>
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="reset-email" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Registered Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      id="reset-email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      placeholder="e.g. customer@acme.com"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('LOGIN');
+                      setResetError(null);
+                    }}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReset}
+                    className="flex-1 py-2.5 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingReset ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Submit</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* MODE 3: RESET PASSWORD */}
+          {authMode === 'RESET_PASSWORD' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('LOGIN');
+                    setResetError(null);
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  title="Back to Login"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Set New Password</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Choose a strong password for <span className="font-semibold text-slate-700">{resetEmail}</span>
+                  </p>
+                </div>
+              </div>
+
+              {resetError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="reset-new-password" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      id="reset-new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      placeholder="At least 8 chars, uppercase, digit & special"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full pl-10 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                      tabIndex={-1}
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="reset-confirm-password" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      id="reset-confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      placeholder="Re-enter your new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full pl-10 pr-10 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password Criteria Badges */}
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className={newPassword.length >= 8 ? 'text-emerald-600 font-bold' : ''}>
+                    • 8+ characters
+                  </span>
+                  <span className={/[A-Z]/.test(newPassword) ? 'text-emerald-600 font-bold' : ''}>
+                    • Uppercase letter
+                  </span>
+                  <span className={/[a-z]/.test(newPassword) ? 'text-emerald-600 font-bold' : ''}>
+                    • Lowercase letter
+                  </span>
+                  <span className={/[0-9]/.test(newPassword) ? 'text-emerald-600 font-bold' : ''}>
+                    • Number & Symbol
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('LOGIN');
+                      setResetError(null);
+                    }}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReset}
+                    className="flex-1 py-2.5 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingReset ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Reset Password</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
 
         {/* 1-Click Fast Persona Switcher for Instant Testing */}

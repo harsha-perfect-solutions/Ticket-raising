@@ -1,9 +1,18 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import prisma from '../db';
 import { generateToken } from '../utils/jwt';
 import { AuthRequest } from '../middleware/auth';
 import { logAuditEvent } from '../utils/auditLogger';
+
+// Secure in-memory token store for password reset tokens (15-minute validity)
+interface PasswordResetToken {
+  userId: string;
+  email: string;
+  expiresAt: number;
+}
+const passwordResetStore = new Map<string, PasswordResetToken>();
 
 export async function login(req: Request, res: Response): Promise<void> {
   try {
@@ -76,6 +85,16 @@ export async function registerCustomer(req: Request, res: Response): Promise<voi
 
     if (!trimmedEmail || !password || !trimmedName || !trimmedPhone) {
       res.status(400).json({ success: false, message: 'Email, password, full name, and phone are required.' });
+      return;
+    }
+
+    if (trimmedName.length < 2 || /^\d+$/.test(trimmedName)) {
+      res.status(400).json({ success: false, message: 'Please enter a valid full name (at least 2 characters, not purely numeric).' });
+      return;
+    }
+
+    if (!/^[0-9]{10}$/.test(trimmedPhone)) {
+      res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
       return;
     }
 
@@ -274,5 +293,150 @@ export async function switchUserDemo(req: Request, res: Response): Promise<void>
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Switch failed', error: error.message });
+  }
+}
+
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { email } = req.body;
+    const trimmedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+
+    if (!trimmedEmail) {
+      res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      res.status(400).json({ success: false, message: 'Please provide a valid email format.' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: trimmedEmail },
+    });
+
+    // Generic response message to prevent email enumeration
+    const genericSuccessMessage =
+      'If an account exists for this email, password reset instructions have been sent.';
+
+    if (!user || !user.isActive) {
+      // Return 200 with generic message so unauthorized parties cannot probe for registered accounts
+      res.json({ success: true, message: genericSuccessMessage });
+      return;
+    }
+
+    // Generate cryptographic one-time reset token (15-minute expiration)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + 15 * 60 * 1000;
+
+    // Invalidate any previous reset tokens for this user
+    for (const [key, val] of passwordResetStore.entries()) {
+      if (val.userId === user.id) {
+        passwordResetStore.delete(key);
+      }
+    }
+
+    passwordResetStore.set(resetToken, {
+      userId: user.id,
+      email: user.email,
+      expiresAt,
+    });
+
+    await logAuditEvent({
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      entityType: 'User',
+      entityId: user.id,
+      req,
+    });
+
+    // In local development / demo environment without external email SMTP,
+    // provide resetToken in the response to allow completing the interactive flow.
+    res.json({
+      success: true,
+      message: genericSuccessMessage,
+      resetToken,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Password reset request failed.', error: error.message });
+  }
+}
+
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ success: false, message: 'Invalid or missing password reset token.' });
+      return;
+    }
+
+    const tokenEntry = passwordResetStore.get(token);
+    if (!tokenEntry || tokenEntry.expiresAt < Date.now()) {
+      if (tokenEntry) passwordResetStore.delete(token);
+      res.status(400).json({
+        success: false,
+        message: 'This password reset link or token has expired or is invalid. Please request a new one.',
+      });
+      return;
+    }
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      res.status(400).json({ success: false, message: 'New password is required.' });
+      return;
+    }
+
+    // Password strength validation matching registration criteria
+    if (newPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+      return;
+    }
+    if (newPassword.length > 128) {
+      res.status(400).json({ success: false, message: 'Password cannot exceed 128 characters.' });
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one uppercase letter.' });
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one lowercase letter.' });
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one number.' });
+      return;
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+      res.status(400).json({ success: false, message: 'Password must contain at least one special character.' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { id: tokenEntry.userId },
+      data: { passwordHash },
+    });
+
+    // Invalidate token immediately
+    passwordResetStore.delete(token);
+
+    await logAuditEvent({
+      userId: tokenEntry.userId,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entityType: 'User',
+      entityId: tokenEntry.userId,
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: 'Your password has been successfully reset! You may now sign in with your new credentials.',
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to reset password.', error: error.message });
   }
 }

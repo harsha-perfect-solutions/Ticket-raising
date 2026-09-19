@@ -68,7 +68,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 : 'bg-[#2563eb] hover:bg-[#1d4ed8]'
             }`}
           >
-            {isLoading ? 'Processing...' : 'Confirm'}
+            {isLoading ? 'Processing...' : confirmText}
           </button>
         </div>
       </div>

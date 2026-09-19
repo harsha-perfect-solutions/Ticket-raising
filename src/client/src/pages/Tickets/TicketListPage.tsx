@@ -17,13 +17,15 @@ import {
   CheckCircle,
   Play,
   XCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
 
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PhoneLink } from '../../components/common/ContactActions';
 
 interface TicketListPageProps {
   onNavigate?: (page: string, ticketId?: string) => void;
@@ -32,6 +34,7 @@ interface TicketListPageProps {
 
 export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOpenNewTicket }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const rolePrefix = user?.role ? user.role.toLowerCase() : 'customer';
 
@@ -56,24 +59,58 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
   const [categories, setCategories] = useState<Category[]>([]);
   const [agents, setAgents] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Bulk Selection States
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
   const [batchAgentId, setBatchAgentId] = useState<string>('');
 
-  // Filter States
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<string>('');
-  const [priority, setPriority] = useState<string>('');
-  const [departmentId, setDepartmentId] = useState<string>('');
-  const [categoryId, setCategoryId] = useState<string>('');
-  const [slaStatus, setSlaStatus] = useState<string>('');
-  const [scope, setScope] = useState<string>(
-    user?.role === 'AGENT' ? 'assigned_to_me' : user?.role === 'TELECALLER' ? 'created_by_me' : ''
-  );
+  // Filter States initialized with searchParams or role default
+  const paramScope = searchParams.get('scope');
+  const initialScope =
+    paramScope !== null
+      ? paramScope === 'all'
+        ? ''
+        : paramScope
+      : user?.role === 'AGENT'
+      ? 'assigned_to_me'
+      : user?.role === 'TELECALLER'
+      ? 'created_by_me'
+      : '';
+
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [status, setStatus] = useState<string>(searchParams.get('status') || '');
+  const [priority, setPriority] = useState<string>(searchParams.get('priority') || '');
+  const [departmentId, setDepartmentId] = useState<string>(searchParams.get('departmentId') || '');
+  const [categoryId, setCategoryId] = useState<string>(searchParams.get('categoryId') || '');
+  const [slaStatus, setSlaStatus] = useState<string>(searchParams.get('slaStatus') || '');
+  const [scope, setScope] = useState<string>(initialScope);
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Keep state synchronized if URL search params change externally
+  useEffect(() => {
+    const s = searchParams.get('scope');
+    if (s !== null) {
+      setScope(s === 'all' ? '' : s);
+    } else {
+      setScope(initialScope);
+    }
+    const st = searchParams.get('status');
+    setStatus(st !== null ? st : '');
+    const p = searchParams.get('priority');
+    setPriority(p !== null ? p : '');
+    const dept = searchParams.get('departmentId');
+    setDepartmentId(dept !== null ? dept : '');
+    const cat = searchParams.get('categoryId');
+    setCategoryId(cat !== null ? cat : '');
+    const sla = searchParams.get('slaStatus');
+    setSlaStatus(sla !== null ? sla : '');
+    const q = searchParams.get('search');
+    setSearch(q !== null ? q : '');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [searchParams]);
 
   const loadFilterOptions = async () => {
     try {
@@ -95,6 +132,7 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
 
   const fetchTickets = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const params: any = {
         page: pagination.page,
@@ -110,14 +148,22 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
       if (categoryId) params.categoryId = categoryId;
       if (slaStatus) params.slaStatus = slaStatus;
       if (scope) params.scope = scope;
+      const paramSource = searchParams.get('source');
+      if (paramSource) params.source = paramSource;
+      const paramAgentId = searchParams.get('assignedAgentId');
+      if (paramAgentId) params.assignedAgentId = paramAgentId;
 
       const res = await ticketApi.list(params);
       if (res.data.success) {
         setTickets(res.data.tickets);
         setPagination(res.data.pagination);
+        setError(null);
+      } else {
+        setError('Unable to load tickets. Please try again.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch tickets', err);
+      setError(err?.response?.data?.message || 'Unable to load tickets. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -281,9 +327,14 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
         <button
           onClick={() => {
             setScope('');
+            setSearchParams((prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('scope');
+              return next;
+            });
             setPagination((p) => ({ ...p, page: 1 }));
           }}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             scope === ''
               ? 'bg-[#2563eb] text-white shadow-sm'
               : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
@@ -386,11 +437,14 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
               className="w-full px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-blue-500"
             >
               <option value="">All Statuses</option>
+              <option value="active">Active / In Progress</option>
+              <option value="open">Open (Active & Escalated)</option>
               <option value="NEW">New</option>
               <option value="ASSIGNED">Assigned</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="WAITING_FOR_CUSTOMER">Waiting for Customer</option>
               <option value="ESCALATED">Escalated</option>
+              <option value="resolved">Resolved & Closed</option>
               <option value="RESOLVED">Resolved</option>
               <option value="CLOSED">Closed</option>
               <option value="CANCELLED">Cancelled</option>
@@ -553,7 +607,29 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
+              {error ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center">
+                    <div className="max-w-md mx-auto p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 space-y-3">
+                      <div className="flex items-center justify-center gap-2 text-rose-700 font-bold text-xs">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{error}</span>
+                      </div>
+                      <p className="text-[11px] text-rose-600">
+                        Unable to load ticket records. Please check your connection or retry.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fetchTickets()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : isLoading ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
@@ -619,7 +695,11 @@ export const TicketListPage: React.FC<TicketListPageProps> = ({ onNavigate, onOp
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-bold text-slate-800">{t.customer?.name}</div>
-                        <div className="text-[11px] text-slate-400">{t.customer?.phone}</div>
+                        {t.customer?.phone && (
+                          <div className="mt-0.5">
+                            <PhoneLink phone={t.customer?.phone} className="text-[11px] text-slate-500 font-normal" />
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">

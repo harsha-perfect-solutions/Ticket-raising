@@ -53,6 +53,26 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err && err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'File exceeds the 15 MB limit.',
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  if (err && err.message && (err.message.includes('Unsupported file type') || err.message.includes('File exceeds the 15 MB limit'))) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
   console.error('Unhandled API Error:', err);
   res.status(err.status || 500).json({
     success: false,

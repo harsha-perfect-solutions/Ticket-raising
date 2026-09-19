@@ -24,7 +24,7 @@ const api = axios.create({
 
 // Attach Authorization Bearer token to all outgoing requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('supportpro_token');
+  const token = localStorage.getItem('supportpro_token') || sessionStorage.getItem('supportpro_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -38,6 +38,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
       localStorage.removeItem('supportpro_token');
       localStorage.removeItem('supportpro_user');
+      sessionStorage.removeItem('supportpro_token');
+      sessionStorage.removeItem('supportpro_user');
       // Redirect to login if unauthenticated
       window.location.href = '/login';
     }
@@ -51,6 +53,10 @@ export const authApi = {
   getMe: () => api.get<{ success: boolean; user: User }>('/auth/me'),
   getDemoAccounts: () => api.get<{ success: boolean; accounts: User[] }>('/auth/demo-accounts'),
   switchDemo: (userId: string) => api.post<{ success: boolean; token: string; user: User }>('/auth/switch-demo', { userId }),
+  forgotPassword: (email: string) =>
+    api.post<{ success: boolean; message: string; resetToken?: string }>('/auth/forgot-password', { email }),
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    api.post<{ success: boolean; message: string }>('/auth/reset-password', data),
 };
 
 export const customerApi = {

@@ -28,6 +28,8 @@ import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
 import { ResolveTicketModal } from '../../components/modals/ResolveTicketModal';
 import { EscalateModal } from '../../components/modals/EscalateModal';
+import { PhoneLink, EmailLink, LocationLink } from '../../components/common/ContactActions';
+import { validateAttachmentFile } from '../../utils/validation';
 import { CustomerFeedbackModal } from '../../components/modals/CustomerFeedbackModal';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
@@ -422,17 +424,26 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
 
             <div className="space-y-2 pt-1 text-xs text-slate-700">
               <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="font-bold text-slate-900">{ticket.customer?.phone}</span>
+                <PhoneLink
+                  phone={ticket.customer?.phone}
+                  className="text-xs font-bold text-slate-900 hover:text-blue-600"
+                  iconClassName="w-3.5 h-3.5 text-amber-600 shrink-0"
+                />
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span className="truncate">{ticket.customer?.email}</span>
+                <EmailLink
+                  email={ticket.customer?.email}
+                  className="text-xs text-slate-700 hover:text-blue-600"
+                  iconClassName="w-3.5 h-3.5 text-blue-600 shrink-0"
+                />
               </div>
               {ticket.customer?.address && (
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                  <span>{ticket.customer?.address}</span>
+                  <LocationLink
+                    location={ticket.customer?.address}
+                    className="text-xs text-slate-700 hover:text-blue-600"
+                    iconClassName="w-3.5 h-3.5 text-rose-600 shrink-0"
+                  />
                 </div>
               )}
             </div>
@@ -715,8 +726,18 @@ export const TicketDetailsPage: React.FC<TicketDetailsPageProps> = ({ ticketId: 
                         <input
                           type="file"
                           className="hidden"
+                          accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
                           onChange={(e) => {
-                            if (e.target.files?.[0]) setAttachmentFile(e.target.files[0]);
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const res = validateAttachmentFile(file);
+                              if (!res.valid) {
+                                alert(res.error);
+                                e.target.value = '';
+                                return;
+                              }
+                              setAttachmentFile(file);
+                            }
                           }}
                         />
                       </label>

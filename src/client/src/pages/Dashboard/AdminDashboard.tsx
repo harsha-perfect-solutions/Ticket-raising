@@ -57,10 +57,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
           'new-ticket': '/admin/raise-ticket',
           'raise-ticket': '/admin/raise-ticket',
           'telecaller-desk': '/admin/telecaller-desk',
-          'sla-rules': '/admin/sla',
-          'departments-categories': '/admin/departments',
+          'sla-rules': '/admin/sla-rules',
+          'departments-categories': '/admin/departments-categories',
           users: '/admin/users',
-          'audit-logs': '/admin/audit',
+          'audit-logs': '/admin/audit-logs',
         };
         navigate(routeMap[page] || `/admin/${page}`);
       }
@@ -165,8 +165,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
             </select>
           </div>
           <button
-            onClick={onOpenNewTicket}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+            onClick={() => {
+              if (onOpenNewTicket) onOpenNewTicket();
+              else handleNav('raise-ticket');
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>+ Raise Ticket</span>
@@ -180,9 +183,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
         <div
           onClick={() => handleNav('tickets')}
           className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleNav('tickets'); }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Total Tickets</span>
+            <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">Total Tickets</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold">
               <TicketIcon className="w-4 h-4" />
             </div>
@@ -201,11 +207,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
 
         {/* Card 2: Open Queue */}
         <div
-          onClick={() => handleNav('tickets')}
+          onClick={() => navigate('/admin/tickets?status=open')}
           className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-purple-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?status=open'); }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Open Tickets</span>
+            <span className="text-xs font-semibold text-slate-500 group-hover:text-purple-600 transition-colors">Open Tickets</span>
             <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center font-bold">
               <Clock className="w-4 h-4" />
             </div>
@@ -222,9 +231,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
         </div>
 
         {/* Card 3: SLA Compliance % */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleNav('sla-rules')}
+          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleNav('sla-rules'); }}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">SLA Compliance</span>
+            <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">SLA Compliance</span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center font-bold">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -242,11 +257,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
 
         {/* Card 4: SLA Breached & Escalated */}
         <div
-          onClick={() => handleNav('tickets')}
+          onClick={() => navigate('/admin/tickets?status=ESCALATED')}
           className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?status=ESCALATED'); }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Escalated Queue</span>
+            <span className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">Escalated Queue</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center font-bold">
               <AlertTriangle className="w-4 h-4" />
             </div>
@@ -263,9 +281,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
         </div>
 
         {/* Card 5: Resolved & CSAT */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => navigate('/admin/tickets?status=resolved')}
+          className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-emerald-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?status=resolved'); }}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500">Resolved CSAT</span>
+            <span className="text-xs font-semibold text-slate-500 group-hover:text-emerald-600 transition-colors">Resolved CSAT</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center font-bold">
               <Star className="w-4 h-4 fill-emerald-600" />
             </div>
@@ -338,19 +362,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
           </div>
 
           <div className="space-y-2 pt-2">
-            <div className="p-2.5 rounded-xl bg-blue-600 text-white flex items-center justify-between text-xs font-bold shadow-sm">
+            <div
+              onClick={() => navigate('/admin/tickets?priority=CRITICAL')}
+              className="p-2.5 rounded-xl bg-blue-600 text-white flex items-center justify-between text-xs font-bold shadow-sm hover:opacity-90 cursor-pointer transition-opacity"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?priority=CRITICAL'); }}
+            >
               <span>Critical (1h SLA)</span>
               <span>{counts.new + counts.inProgress + 2}</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-teal-600 text-white flex items-center justify-between text-xs font-bold shadow-sm mx-2">
+            <div
+              onClick={() => navigate('/admin/tickets?priority=HIGH')}
+              className="p-2.5 rounded-xl bg-teal-600 text-white flex items-center justify-between text-xs font-bold shadow-sm mx-2 hover:opacity-90 cursor-pointer transition-opacity"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?priority=HIGH'); }}
+            >
               <span>High (4h SLA)</span>
               <span>{counts.inProgress + 4}</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-600 text-white flex items-center justify-between text-xs font-bold shadow-sm mx-4">
+            <div
+              onClick={() => navigate('/admin/tickets?priority=MEDIUM')}
+              className="p-2.5 rounded-xl bg-emerald-600 text-white flex items-center justify-between text-xs font-bold shadow-sm mx-4 hover:opacity-90 cursor-pointer transition-opacity"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?priority=MEDIUM'); }}
+            >
               <span>Medium (8h SLA)</span>
               <span>{counts.resolved + 8}</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-500 text-white flex items-center justify-between text-xs font-bold shadow-sm mx-6">
+            <div
+              onClick={() => navigate('/admin/tickets?priority=LOW')}
+              className="p-2.5 rounded-xl bg-emerald-500 text-white flex items-center justify-between text-xs font-bold shadow-sm mx-6 hover:opacity-90 cursor-pointer transition-opacity"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate('/admin/tickets?priority=LOW'); }}
+            >
               <span>Low (24h SLA)</span>
               <span>12</span>
             </div>
@@ -362,8 +410,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900">Pending Escalations</h3>
             <button
-              onClick={() => handleNav('tickets')}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700"
+              onClick={() => navigate('/admin/tickets?status=ESCALATED')}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
             >
               View All
             </button>
@@ -430,7 +478,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate, onOp
             </thead>
             <tbody className="divide-y divide-slate-100">
               {stats?.ticketsByAgent?.map((agent, i) => (
-                <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                <tr
+                  key={i}
+                  onClick={() => handleNav('users')}
+                  className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                  title="Manage agent in Team Directory"
+                >
                   <td className="py-3.5 px-4 font-bold text-slate-800 flex items-center gap-2">
                     <div className="w-6 h-6 rounded-md bg-[#2563eb] text-white text-[10px] font-bold flex items-center justify-center">
                       {agent.name.charAt(0)}

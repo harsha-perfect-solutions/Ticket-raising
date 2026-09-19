@@ -15,6 +15,15 @@ import {
   Check,
 } from 'lucide-react';
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
+import {
+  isValid10DigitPhone,
+  sanitize10DigitPhone,
+  isValidFullName,
+  isValidEmail,
+  PHONE_PLACEHOLDER,
+  PHONE_ERROR_MESSAGE,
+} from '../../utils/validation';
+import { PhoneLink, EmailLink } from '../../components/common/ContactActions';
 
 export const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -90,12 +99,41 @@ export const UserManagementPage: React.FC = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullName.trim() || !formData.email.trim()) return;
+    const trimmedName = formData.fullName.trim();
+    const trimmedEmail = formData.email.trim();
+    const trimmedPhone = formData.phone.trim();
+
+    if (!isValidFullName(trimmedName)) {
+      setError('Please enter a valid full name (at least 2 characters, not purely numeric).');
+      return;
+    }
+    if (!isValidEmail(trimmedEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (formData.password.length < 8) {
+      setError('Temporary password must be at least 8 characters long.');
+      return;
+    }
+    if (trimmedPhone && !isValid10DigitPhone(trimmedPhone)) {
+      setError(PHONE_ERROR_MESSAGE);
+      return;
+    }
+    if (['AGENT', 'MANAGER'].includes(formData.role) && !formData.departmentId) {
+      setError('Department assignment is required for Agents and Managers.');
+      return;
+    }
 
     setIsCreating(true);
     setError(null);
     try {
-      const res = await adminApi.createUser(formData);
+      const res = await adminApi.createUser({
+        ...formData,
+        fullName: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone || undefined,
+        departmentId: formData.departmentId || undefined,
+      });
       if (res.data.success) {
         setFormData({
           fullName: '',
@@ -126,14 +164,34 @@ export const UserManagementPage: React.FC = () => {
     });
   };
 
-  // 1. Submit Edit User
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
+    const trimmedName = (editFormData.fullName || '').trim();
+    const trimmedPhone = (editFormData.phone || '').trim();
+
+    if (!isValidFullName(trimmedName)) {
+      alert('Please enter a valid full name (at least 2 characters, not purely numeric).');
+      return;
+    }
+    if (trimmedPhone && !isValid10DigitPhone(trimmedPhone)) {
+      alert(PHONE_ERROR_MESSAGE);
+      return;
+    }
+    if (['AGENT', 'MANAGER'].includes(editFormData.role || '') && !editFormData.departmentId) {
+      alert('Department assignment is required for Agents and Managers.');
+      return;
+    }
+
     setIsUpdating(true);
     try {
-      const res = await adminApi.updateUser(editingUser.id, editFormData);
+      const res = await adminApi.updateUser(editingUser.id, {
+        ...editFormData,
+        fullName: trimmedName,
+        phone: trimmedPhone || undefined,
+        departmentId: editFormData.departmentId || undefined,
+      });
       if (res.data.success) {
         showNotification(`User ${editingUser.email} updated successfully!`);
         setEditingUser(null);
@@ -293,10 +351,12 @@ export const UserManagementPage: React.FC = () => {
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Phone Number</label>
               <input
-                type="text"
-                placeholder="+1 555-0100"
+                type="tel"
+                maxLength={10}
+                inputMode="numeric"
+                placeholder={PHONE_PLACEHOLDER}
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phone: sanitize10DigitPhone(e.target.value) })}
                 className="w-full px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:bg-white focus:border-blue-500"
               />
             </div>
@@ -378,7 +438,15 @@ export const UserManagementPage: React.FC = () => {
                       <div className="font-bold text-slate-900 flex items-center gap-1.5">
                         <span>{u.fullName}</span>
                       </div>
-                      <div className="text-[11px] text-slate-500">{u.email}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <EmailLink email={u.email} className="text-[11px] text-slate-500" />
+                        {u.phone && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <PhoneLink phone={u.phone} className="text-[11px] text-slate-500" />
+                          </>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3.5 px-4 whitespace-nowrap">
@@ -505,9 +573,12 @@ export const UserManagementPage: React.FC = () => {
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Phone Number</label>
                 <input
-                  type="text"
-                  value={editFormData.phone}
-                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  type="tel"
+                  maxLength={10}
+                  inputMode="numeric"
+                  placeholder={PHONE_PLACEHOLDER}
+                  value={editFormData.phone || ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: sanitize10DigitPhone(e.target.value) })}
                   className="w-full px-3 py-2 bg-[#f8fafc] border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-blue-500"
                 />
               </div>

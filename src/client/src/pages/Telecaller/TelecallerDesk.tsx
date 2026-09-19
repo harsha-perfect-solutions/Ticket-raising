@@ -23,6 +23,7 @@ import { NewCustomerModal } from '../../components/modals/NewCustomerModal';
 import { NewTicketModal } from '../../components/modals/NewTicketModal';
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
 import { useNavigate } from 'react-router-dom';
+import { PhoneLink, EmailLink, LocationLink } from '../../components/common/ContactActions';
 import { useAuth } from '../../context/AuthContext';
 
 interface TelecallerDeskProps {
@@ -155,7 +156,7 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
-                placeholder="Search phone (+1 555...), email, or name..."
+                placeholder="Search 10-digit phone, email, or name..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 pr-3.5 py-2.5 bg-[#f8fafc] border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -214,12 +215,18 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
 
               <div className="space-y-2.5 text-xs text-slate-700">
                 <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span className="font-bold text-slate-900">{selectedCustomer.phone}</span>
+                  <PhoneLink
+                    phone={selectedCustomer.phone}
+                    className="font-bold text-slate-900 hover:text-blue-600 text-xs"
+                    iconClassName="w-4 h-4 text-amber-600 shrink-0"
+                  />
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>{selectedCustomer.email}</span>
+                  <EmailLink
+                    email={selectedCustomer.email}
+                    className="text-slate-700 hover:text-blue-600 text-xs"
+                    iconClassName="w-4 h-4 text-blue-600 shrink-0"
+                  />
                 </div>
                 {selectedCustomer.company && (
                   <div className="flex items-center gap-2.5">
@@ -229,8 +236,11 @@ export const TelecallerDesk: React.FC<TelecallerDeskProps> = ({ onNavigate }) =>
                 )}
                 {selectedCustomer.address && (
                   <div className="flex items-center gap-2.5">
-                    <MapPin className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>{selectedCustomer.address}</span>
+                    <LocationLink
+                      location={selectedCustomer.address}
+                      className="text-slate-700 hover:text-blue-600 text-xs"
+                      iconClassName="w-4 h-4 text-rose-600 shrink-0"
+                    />
                   </div>
                 )}
                 {selectedCustomer.notes && (

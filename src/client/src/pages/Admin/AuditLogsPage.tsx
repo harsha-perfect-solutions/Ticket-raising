@@ -1,8 +1,230 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/api';
 import { AuditLog } from '../../types';
-import { ScrollText, RefreshCw, Download } from 'lucide-react';
+import { ScrollText, RefreshCw, Download, ArrowRight, Shield, User, Clock, CheckCircle2 } from 'lucide-react';
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
+
+const ACTION_COLOR_MAP: Record<string, string> = {
+  TICKET_CREATED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  TICKET_STATUS_CHANGED: 'bg-blue-50 text-blue-700 border-blue-200',
+  TICKET_ASSIGNED: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  TICKET_ESCALATED: 'bg-rose-50 text-rose-700 border-rose-200',
+  SLA_BREACH_TRIGGERED: 'bg-rose-50 text-rose-700 border-rose-200',
+  SLA_WARNING_TRIGGERED: 'bg-amber-50 text-amber-700 border-amber-200',
+  NOTE_ADDED: 'bg-slate-50 text-slate-700 border-slate-200',
+  USER_LOGGED_IN: 'bg-teal-50 text-teal-700 border-teal-200',
+  USER_CREATED: 'bg-purple-50 text-purple-700 border-purple-200',
+  USER_UPDATED: 'bg-blue-50 text-blue-700 border-blue-200',
+  CUSTOMER_CREATED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  SLA_RULE_CREATED: 'bg-purple-50 text-purple-700 border-purple-200',
+  SLA_RULE_UPDATED: 'bg-blue-50 text-blue-700 border-blue-200',
+  SLA_RULE_DELETED: 'bg-rose-50 text-rose-700 border-rose-200',
+  DEPARTMENT_CREATED: 'bg-purple-50 text-purple-700 border-purple-200',
+  DEPARTMENT_DELETED: 'bg-rose-50 text-rose-700 border-rose-200',
+  CATEGORY_CREATED: 'bg-purple-50 text-purple-700 border-purple-200',
+  CATEGORY_DELETED: 'bg-rose-50 text-rose-700 border-rose-200',
+};
+
+function formatActionTitle(action: string): string {
+  const customMap: Record<string, string> = {
+    TICKET_STATUS_CHANGED: 'Status Changed',
+    TICKET_CREATED: 'Ticket Created',
+    TICKET_ASSIGNED: 'Ticket Assigned',
+    TICKET_ESCALATED: 'Ticket Escalated',
+    TICKET_RESOLVED: 'Ticket Resolved',
+    SLA_BREACH_TRIGGERED: 'SLA Breached',
+    SLA_WARNING_TRIGGERED: 'SLA Warning',
+    NOTE_ADDED: 'Note Added',
+    USER_LOGGED_IN: 'User Sign In',
+    USER_CREATED: 'User Provisioned',
+    USER_UPDATED: 'User Updated',
+    CUSTOMER_CREATED: 'Customer Registered',
+    SLA_RULE_CREATED: 'SLA Policy Created',
+    SLA_RULE_UPDATED: 'SLA Policy Updated',
+    SLA_RULE_DELETED: 'SLA Policy Deleted',
+    DEPARTMENT_CREATED: 'Department Added',
+    DEPARTMENT_DELETED: 'Department Removed',
+    CATEGORY_CREATED: 'Category Added',
+    CATEGORY_DELETED: 'Category Removed',
+  };
+
+  if (customMap[action]) return customMap[action];
+  return action
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatEnumValue(val: any): string {
+  if (val === null || val === undefined) return 'None';
+  if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  if (typeof val === 'number') return String(val);
+  if (typeof val !== 'string') return String(val);
+
+  const customVals: Record<string, string> = {
+    IN_PROGRESS: 'In Progress',
+    WAITING_FOR_CUSTOMER: 'Waiting for Customer',
+    NEW: 'New',
+    OPEN: 'Open',
+    RESOLVED: 'Resolved',
+    CLOSED: 'Closed',
+    ESCALATED: 'Escalated',
+    LOW: 'Low',
+    MEDIUM: 'Medium',
+    HIGH: 'High',
+    CRITICAL: 'Critical',
+    AGENT: 'Support Agent',
+    TELECALLER: 'Telecaller',
+    MANAGER: 'Manager / Team Lead',
+    ADMIN: 'Administrator',
+    CUSTOMER: 'Customer',
+  };
+
+  if (customVals[val]) return customVals[val];
+  return val
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatKeyLabel(key: string): string {
+  const customKeys: Record<string, string> = {
+    oldStatus: 'Previous Status',
+    previousStatus: 'Previous Status',
+    newStatus: 'New Status',
+    assignedAgentName: 'Assigned Agent',
+    departmentName: 'Department',
+    firstResponseMinutes: 'First Response Target',
+    resolutionMinutes: 'Resolution Deadline',
+    warnBeforeMinutes: 'Near-Breach Alert',
+    autoEscalateMinutes: 'Auto-Escalation Threshold',
+    role: 'Assigned Role',
+    reason: 'Reason',
+    note: 'Internal Note',
+    callSummary: 'Call Summary',
+    subject: 'Subject',
+    priority: 'Priority',
+  };
+
+  if (customKeys[key]) return customKeys[key];
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+const HumanReadableDetails: React.FC<{ details?: string | null; ticketNumber?: string }> = ({
+  details,
+  ticketNumber,
+}) => {
+  if (!details || details.trim() === '' || details === '{}') {
+    return <span className="text-slate-400 italic">No additional details recorded</span>;
+  }
+
+  // Try parsing JSON
+  let parsed: Record<string, any> | null = null;
+  try {
+    if (details.trim().startsWith('{') || details.trim().startsWith('[')) {
+      parsed = JSON.parse(details);
+    }
+  } catch {
+    parsed = null;
+  }
+
+  // If plain text (not JSON)
+  if (!parsed || typeof parsed !== 'object') {
+    return (
+      <span className="text-slate-700 font-medium leading-relaxed">
+        {details.replace(/[{}"]/g, '')}
+      </span>
+    );
+  }
+
+  // Array of items
+  if (Array.isArray(parsed)) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {parsed.map((item, idx) => (
+          <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-medium">
+            {formatEnumValue(item)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Specific high-frequency pattern: Status Transition
+  const oldStatus = parsed.oldStatus || parsed.previousStatus;
+  const newStatus = parsed.newStatus || parsed.status;
+  if (oldStatus && newStatus) {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5 flex-wrap font-medium text-slate-800 text-xs">
+          <span>Moved from</span>
+          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-200">
+            {formatEnumValue(oldStatus)}
+          </span>
+          <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200">
+            {formatEnumValue(newStatus)}
+          </span>
+        </div>
+        {parsed.reason && (
+          <p className="text-[11px] text-slate-500 font-normal">
+            <span className="font-semibold text-slate-600">Reason:</span> {parsed.reason}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Specific pattern: Ticket Escalated or Breached
+  if (parsed.reason && !oldStatus) {
+    return (
+      <div className="space-y-0.5">
+        <span className="text-xs text-slate-800 font-medium">
+          {ticketNumber ? `Ticket ${ticketNumber}: ` : ''}
+          {parsed.reason}
+        </span>
+        {parsed.escalatedToRole && (
+          <div className="text-[11px] text-slate-500">
+            Escalated to: <strong>{formatEnumValue(parsed.escalatedToRole)}</strong>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // General Object: Filter out raw UUIDs/IDs and display clean key-value pairs
+  const visibleEntries = Object.entries(parsed).filter(([key, val]) => {
+    if (val === null || val === undefined || val === '') return false;
+    // Don't show raw technical IDs if names or higher-level keys exist
+    if (['id', 'userId', 'entityId', 'ticketId', 'actorId', '_id'].includes(key)) return false;
+    if (key.endsWith('Id') && typeof val === 'string' && val.length > 15) return false;
+    return true;
+  });
+
+  if (visibleEntries.length === 0) {
+    // If only IDs existed, display a clean fallback instead of raw JSON
+    return <span className="text-slate-500 font-medium">Configuration updated successfully</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2 text-xs">
+      {visibleEntries.map(([key, val]) => (
+        <div
+          key={key}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px]"
+        >
+          <span className="font-semibold text-slate-600">{formatKeyLabel(key)}:</span>
+          <span className="font-bold text-slate-900">{formatEnumValue(val)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -20,7 +242,7 @@ export const AuditLogsPage: React.FC = () => {
         setLogs(res.data.logs);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch audit logs:', err);
     } finally {
       setIsLoading(false);
     }
@@ -30,10 +252,10 @@ export const AuditLogsPage: React.FC = () => {
     if (logs.length === 0) return;
     const headers = ['Timestamp', 'Actor Name', 'Actor Role', 'Action', 'Entity Type', 'Ticket Number', 'Details'];
     const rows = logs.map((l) => [
-      `"${new Date(l.createdAt).toISOString()}"`,
-      `"${(l.user?.fullName || 'System').replace(/"/g, '""')}"`,
+      `"${new Date(l.createdAt).toLocaleString()}"`,
+      `"${(l.user?.fullName || 'System Event').replace(/"/g, '""')}"`,
       `"${l.user?.role || 'SYSTEM'}"`,
-      `"${l.action}"`,
+      `"${formatActionTitle(l.action)}"`,
       `"${l.entityType || ''}"`,
       `"${l.ticket?.ticketNumber || ''}"`,
       `"${(l.details || '').replace(/"/g, '""')}"`,
@@ -51,8 +273,8 @@ export const AuditLogsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <Breadcrumbs items={[{ label: 'Audit Trail Logs' }]} />
+    <div className="space-y-6 animate-fade-in pb-12">
+      <Breadcrumbs items={[{ label: 'Audit Activity Trail' }]} />
 
       {/* Header Banner */}
       <div className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -61,9 +283,9 @@ export const AuditLogsPage: React.FC = () => {
             <ScrollText className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Compliance & Audit Trail Explorer</h1>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Audit & Compliance Trail</h1>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
-              Immutable activity records for ticket transitions, reassignments, internal notes, and SLA status changes.
+              Human-readable record of ticket transitions, team assignments, SLA breaches, and administrative updates.
             </p>
           </div>
         </div>
@@ -90,7 +312,7 @@ export const AuditLogsPage: React.FC = () => {
 
       <div className="rounded-2xl bg-white border border-slate-200/90 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-900">System Action Timeline</h3>
+          <h3 className="text-sm font-bold text-slate-900">Activity Timeline</h3>
           <span className="text-xs text-slate-500 font-semibold">{logs.length} events logged</span>
         </div>
 
@@ -98,11 +320,11 @@ export const AuditLogsPage: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
-                <th className="py-3.5 px-4">Timestamp</th>
-                <th className="py-3.5 px-4">Actor</th>
-                <th className="py-3.5 px-4">Action</th>
-                <th className="py-3.5 px-4">Entity</th>
-                <th className="py-3.5 px-4">Details / Diff</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Timestamp</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Actor</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Action</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Entity / Target</th>
+                <th className="py-3.5 px-4">Event Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -119,36 +341,55 @@ export const AuditLogsPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </td>
+                logs.map((log) => {
+                  const badgeColor = ACTION_COLOR_MAP[log.action] || 'bg-slate-50 text-slate-700 border-slate-200';
+                  const dateObj = new Date(log.createdAt);
+                  const formattedDate = dateObj.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  });
+                  const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <div className="font-bold text-slate-900">{log.user?.fullName || 'System Event'}</div>
-                      <div className="text-[10px] text-slate-400 font-semibold">{log.user?.role || 'SYSTEM'}</div>
-                    </td>
+                  return (
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-600 text-[11px]">
+                        <div className="font-semibold text-slate-800">{formattedDate}</div>
+                        <div className="text-[10px] text-slate-400">{formattedTime}</div>
+                      </td>
 
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <span className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-bold">
-                        {log.action}
-                      </span>
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-bold text-slate-900">{log.user?.fullName || 'System Automation'}</div>
+                        <div className="text-[10px] text-slate-400 font-semibold">{formatEnumValue(log.user?.role || 'SYSTEM')}</div>
+                      </td>
 
-                    <td className="py-3.5 px-4 whitespace-nowrap text-slate-700 font-medium">
-                      {log.ticket ? (
-                        <span className="font-bold text-blue-600">{log.ticket.ticketNumber}</span>
-                      ) : (
-                        <span>{log.entityType}</span>
-                      )}
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-md border font-bold text-[11px] ${badgeColor}`}>
+                          {formatActionTitle(log.action)}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate text-[11px]">
-                      {log.details || '-'}
-                    </td>
-                  </tr>
-                ))
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-700 font-medium">
+                        {log.ticket ? (
+                          <div className="flex flex-col">
+                            <span className="font-bold text-blue-600">{log.ticket.ticketNumber}</span>
+                            {log.ticket.subject && (
+                              <span className="text-[11px] text-slate-400 truncate max-w-[12rem]">{log.ticket.subject}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium text-[11px]">
+                            {log.entityType || 'General'}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <HumanReadableDetails details={log.details} ticketNumber={log.ticket?.ticketNumber} />
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

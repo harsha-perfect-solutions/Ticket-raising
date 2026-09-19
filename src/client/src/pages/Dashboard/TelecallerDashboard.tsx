@@ -17,8 +17,8 @@ import {
   User,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaCountdownBadge } from '../../components/common/SlaCountdownBadge';
+import { PhoneLink } from '../../components/common/ContactActions';
 
 export const TelecallerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -86,42 +86,66 @@ export const TelecallerDashboard: React.FC = () => {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/telecaller/desk')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/telecaller/desk'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Inbound Calls Handled</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">Inbound Calls Handled</p>
             <h3 className="text-2xl font-extrabold text-slate-900 mt-1">28</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all">
             <PhoneCall className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/telecaller/tickets?source=TELECALLER')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/telecaller/tickets?source=TELECALLER'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Tickets Dispatched</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">Tickets Dispatched</p>
             <h3 className="text-2xl font-extrabold text-amber-600 mt-1">{recentLoggedTickets.length}</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/telecaller/desk')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/telecaller/desk'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Avg Verification Speed</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-amber-600 transition-colors">Avg Verification Speed</p>
             <h3 className="text-2xl font-extrabold text-emerald-600 mt-1">1m 12s</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all">
             <Clock className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => navigate('/telecaller/desk')}
+          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') navigate('/telecaller/desk'); }}
+        >
           <div>
-            <p className="text-xs font-semibold text-slate-500">Identity Match Rate</p>
+            <p className="text-xs font-semibold text-slate-500 group-hover:text-purple-600 transition-colors">Identity Match Rate</p>
             <h3 className="text-2xl font-extrabold text-purple-600 mt-1">98.2%</h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
             <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
@@ -182,7 +206,11 @@ export const TelecallerDashboard: React.FC = () => {
                   <td className="px-5 py-3.5 font-mono font-bold text-blue-600">{t.ticketNumber}</td>
                   <td className="px-5 py-3.5">
                     <p className="font-bold text-slate-800">{t.customer?.name}</p>
-                    <p className="text-[11px] text-slate-400">{t.customer?.phone}</p>
+                    {t.customer?.phone && (
+                      <div className="mt-0.5">
+                        <PhoneLink phone={t.customer?.phone} className="text-[11px] text-slate-500 font-normal" />
+                      </div>
+                    )}
                   </td>
                   <td className="px-5 py-3.5 max-w-xs">
                     <p className="font-semibold text-slate-800 truncate">{t.subject}</p>
@@ -193,7 +221,16 @@ export const TelecallerDashboard: React.FC = () => {
                     <StatusBadge status={t.status} />
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className="text-xs font-bold text-amber-600 hover:text-amber-700">View</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/telecaller/tickets/${t.id}`);
+                      }}
+                      className="text-xs font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
+                    >
+                      View
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -15,6 +15,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { Breadcrumbs } from '../../components/common/Breadcrumbs';
+import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 
 export const DepartmentsCategoriesPage: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -40,6 +41,8 @@ export const DepartmentsCategoriesPage: React.FC = () => {
 
   // Deletion loading state
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'department' | 'category'; id: string; name: string } | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -166,47 +169,42 @@ export const DepartmentsCategoriesPage: React.FC = () => {
     }
   };
 
-  const handleDeleteDept = async (deptId: string, deptName: string) => {
-    if (!window.confirm(`Are you sure you want to delete department "${deptName}"?`)) {
-      return;
-    }
-
-    setDeletingId(deptId);
-    setDeptError(null);
-    try {
-      const res = await adminApi.deleteDepartment(deptId);
-      if (res.data.success) {
-        setDeptSuccess(`Department "${deptName}" deleted.`);
-        await loadData();
-        setTimeout(() => setDeptSuccess(null), 4000);
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeletingItem(true);
+    const { type, id, name } = itemToDelete;
+    if (type === 'department') {
+      setDeptError(null);
+      try {
+        const res = await adminApi.deleteDepartment(id);
+        if (res.data.success) {
+          setDeptSuccess(`Department "${name}" deleted.`);
+          await loadData();
+          setTimeout(() => setDeptSuccess(null), 4000);
+        }
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.message || 'Failed to delete department.';
+        setDeptError(msg);
+      } finally {
+        setIsDeletingItem(false);
+        setItemToDelete(null);
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to delete department.';
-      setDeptError(msg);
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const handleDeleteCat = async (catId: string, catName: string) => {
-    if (!window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
-      return;
-    }
-
-    setDeletingId(catId);
-    setCatError(null);
-    try {
-      const res = await adminApi.deleteCategory(catId);
-      if (res.data.success) {
-        setCatSuccess(`Category "${catName}" deleted.`);
-        await loadData();
-        setTimeout(() => setCatSuccess(null), 4000);
+    } else {
+      setCatError(null);
+      try {
+        const res = await adminApi.deleteCategory(id);
+        if (res.data.success) {
+          setCatSuccess(`Category "${name}" deleted.`);
+          await loadData();
+          setTimeout(() => setCatSuccess(null), 4000);
+        }
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.message || 'Failed to delete category.';
+        setCatError(msg);
+      } finally {
+        setIsDeletingItem(false);
+        setItemToDelete(null);
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Failed to delete category.';
-      setCatError(msg);
-    } finally {
-      setDeletingId(null);
     }
   };
 
@@ -289,10 +287,7 @@ export const DepartmentsCategoriesPage: React.FC = () => {
                     <span>Adding...</span>
                   </>
                 ) : (
-                  <>
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Add</span>
-                  </>
+                  <span>+ Add</span>
                 )}
               </button>
             </div>
@@ -333,16 +328,12 @@ export const DepartmentsCategoriesPage: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => handleDeleteDept(dept.id, dept.name)}
-                    disabled={deletingId === dept.id}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                    onClick={() => setItemToDelete({ type: 'department', id: dept.id, name: dept.name })}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
                     title="Delete Department"
+                    aria-label={`Delete department ${dept.name}`}
                   >
-                    {deletingId === dept.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
-                    )}
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))
@@ -506,10 +497,7 @@ export const DepartmentsCategoriesPage: React.FC = () => {
                     <span>Creating...</span>
                   </>
                 ) : (
-                  <>
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>+ Create Category</span>
-                  </>
+                  <span>+ Create Category</span>
                 )}
               </button>
             </div>
@@ -541,16 +529,12 @@ export const DepartmentsCategoriesPage: React.FC = () => {
                         Default {cat.defaultPriority}
                       </span>
                       <button
-                        onClick={() => handleDeleteCat(cat.id, cat.name)}
-                        disabled={deletingId === cat.id}
-                        className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                        onClick={() => setItemToDelete({ type: 'category', id: cat.id, name: cat.name })}
+                        className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
                         title="Delete Category"
+                        aria-label={`Delete category ${cat.name}`}
                       >
-                        {deletingId === cat.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3 h-3" />
-                        )}
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -573,6 +557,19 @@ export const DepartmentsCategoriesPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* CONFIRM DELETE MODAL */}
+      <ConfirmationModal
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title={itemToDelete?.type === 'department' ? 'Delete this Department?' : 'Delete this Category?'}
+        message={`Are you sure you want to delete ${itemToDelete?.type === 'department' ? 'department' : 'category'} "${itemToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isDeletingItem}
+      />
     </div>
   );
 };

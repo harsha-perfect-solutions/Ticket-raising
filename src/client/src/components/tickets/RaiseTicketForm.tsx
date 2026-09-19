@@ -566,15 +566,9 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
   const ALLOWED_MIME_TYPES = [
     'image/jpeg',
     'image/png',
-    'image/webp',
-    'image/gif',
     'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'application/json',
-    'application/zip',
   ];
+  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf'];
   const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
 
   const handleAddFiles = (files: FileList | null) => {
@@ -587,11 +581,16 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
         return; // Duplicate
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        errors.push(`"${file.name}" exceeds the 15MB size limit.`);
+        errors.push('File exceeds the 15 MB limit.');
         return;
       }
-      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-        errors.push(`"${file.name}" has an unsupported format.`);
+      const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+      const isExtAllowed = ALLOWED_EXTENSIONS.includes(ext);
+      const isMimeAllowed = ALLOWED_MIME_TYPES.includes(file.type.toLowerCase());
+      const forbiddenExts = ['.zip', '.rar', '.doc', '.docx', '.xls', '.xlsx', '.exe', '.js', '.html', '.svg'];
+
+      if ((!isExtAllowed && !isMimeAllowed) || forbiddenExts.includes(ext)) {
+        errors.push('Unsupported file type. Please upload JPG, JPEG, PNG, or PDF files only.');
         return;
       }
       newItems.push({
@@ -605,7 +604,7 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
     });
 
     if (errors.length > 0) {
-      setFormErrors((prev) => ({ ...prev, attachments: errors.join(' ') }));
+      setFormErrors((prev) => ({ ...prev, attachments: errors[0] }));
     } else {
       setFormErrors((prev) => {
         const copy = { ...prev };
@@ -682,6 +681,10 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
 
     if (!raisingForSelf && !selectedCustomer && isStaff) {
       errors.customer = 'Please search and select a customer, or choose "Raise for myself".';
+    }
+
+    if (contactPhone.trim() && !/^[0-9]{10}$/.test(contactPhone.trim())) {
+      errors.contactPhone = 'Please enter a valid 10-digit mobile number.';
     }
 
     setFormErrors(errors);
@@ -1106,8 +1109,14 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => onNavigate?.('tickets')}
-              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate('tickets');
+                } else {
+                  navigate(`/${rolePrefix}/tickets`);
+                }
+              }}
+              className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-slate-500" />
               <span>My Tickets Queue</span>
@@ -1702,12 +1711,39 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">Contact Phone</label>
                 <input
-                  type="text"
-                  placeholder="e.g. +1 555-0199"
+                  type="tel"
+                  maxLength={10}
+                  inputMode="numeric"
+                  placeholder="Enter 10-digit mobile number"
                   value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setContactPhone(val);
+                    if (val && !/^[0-9]{10}$/.test(val)) {
+                      setFormErrors((prev) => ({ ...prev, contactPhone: 'Please enter a valid 10-digit mobile number.' }));
+                    } else {
+                      setFormErrors((prev) => {
+                        const copy = { ...prev };
+                        delete copy.contactPhone;
+                        return copy;
+                      });
+                    }
+                  }}
+                  onBlur={() => {
+                    if (contactPhone.trim() && !/^[0-9]{10}$/.test(contactPhone.trim())) {
+                      setFormErrors((prev) => ({ ...prev, contactPhone: 'Please enter a valid 10-digit mobile number.' }));
+                    }
+                  }}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-xs text-slate-800 focus:outline-none focus:border-blue-500 ${
+                    formErrors.contactPhone ? 'border-rose-400 ring-1 ring-rose-200' : 'border-slate-200'
+                  }`}
                 />
+                {formErrors.contactPhone && (
+                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {formErrors.contactPhone}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1836,7 +1872,7 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
                 multiple
                 onChange={(e) => handleAddFiles(e.target.files)}
                 className="hidden"
-                accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.txt,.json,.zip"
+                accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"
               />
               <div className="flex flex-col items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -1847,7 +1883,7 @@ export const RaiseTicketForm: React.FC<RaiseTicketFormProps> = ({
                     <span className="text-blue-600">Click to upload</span> or drag and drop files here
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    PNG, JPG, PDF, Word, ZIP or Text files up to 15MB
+                    JPG, JPEG, PNG, or PDF files only (up to 15 MB)
                   </p>
                 </div>
               </div>

@@ -173,21 +173,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
         </div>
       </div>
 
-      {/* User Dossier Card at Bottom matching the screenshot */}
+      {/* User Dossier Card at Bottom */}
       <div className="mt-6 pt-4 border-t border-slate-100">
-        <div
-          onClick={logout}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              logout();
-            }
-          }}
-          title="Click to Sign Out"
-          className="p-3 rounded-2xl bg-[#f8fafc] hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 shadow-sm space-y-2.5 cursor-pointer transition-all group select-none"
-        >
+        <div className="p-3 rounded-2xl bg-[#f8fafc] border border-slate-200/80 shadow-sm space-y-2.5">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#2563eb] text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm">
               {initials}
@@ -208,21 +196,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate }) => 
                   : 'Customer Account'}
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-slate-400 text-xs">
-            <div className="flex items-center gap-2">
-              <span
-                className="p-1 group-hover:text-rose-600 text-slate-400 transition-colors"
-                title="Sign Out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 shrink-0">
               Online
             </span>
           </div>
+
+          <button
+            onClick={logout}
+            type="button"
+            aria-label="Sign out"
+            title="Sign out of SupportPro"
+            className="w-full pt-2 border-t border-slate-200/60 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-600 hover:text-rose-600 transition-colors py-1 rounded-lg hover:bg-rose-50/70 group cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-600 transition-colors" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </div>
     </aside>

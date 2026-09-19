@@ -134,6 +134,14 @@ export const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="/customer/all-tickets"
+          element={
+            <ProtectedRoute allowedRoles={['CUSTOMER']}>
+              <TicketListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/customer/tickets/:ticketId"
           element={
             <ProtectedRoute allowedRoles={['CUSTOMER']}>
@@ -300,6 +308,15 @@ export const AppRoutes: React.FC = () => {
           }
         />
 
+        <Route
+          path="/manager/escalations"
+          element={
+            <ProtectedRoute allowedRoles={['MANAGER']}>
+              <TicketListPage />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Admin Command Center */}
         <Route
           path="/admin/dashboard"
@@ -350,12 +367,20 @@ export const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="/admin/sla"
+          element={<Navigate to="/admin/sla-rules" replace />}
+        />
+        <Route
           path="/admin/departments-categories"
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <DepartmentsCategoriesPage />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/admin/departments"
+          element={<Navigate to="/admin/departments-categories" replace />}
         />
         <Route
           path="/admin/users"
@@ -373,10 +398,15 @@ export const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/audit"
+          element={<Navigate to="/admin/audit-logs" replace />}
+        />
 
         {/* Generic shortcut redirects for convenience */}
         <Route path="/dashboard" element={<RoleRedirect subpath="dashboard" />} />
         <Route path="/tickets" element={<RoleRedirect subpath="tickets" />} />
+        <Route path="/all-tickets" element={<RoleRedirect subpath="tickets" />} />
         <Route path="/tickets/:ticketId" element={<TicketRedirect />} />
         <Route path="/raise-ticket" element={<RoleRedirect subpath="raise-ticket" />} />
         <Route path="/telecaller-desk" element={<RoleRedirect subpath="telecaller-desk" />} />

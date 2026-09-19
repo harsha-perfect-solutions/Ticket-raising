@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { login, registerCustomer, getMe, getDemoAccounts, switchUserDemo } from '../controllers/authController';
+import {
+  login,
+  registerCustomer,
+  getMe,
+  getDemoAccounts,
+  switchUserDemo,
+  forgotPassword,
+  resetPassword,
+} from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
@@ -9,5 +17,7 @@ router.post('/register', registerCustomer);
 router.get('/me', authenticate, getMe);
 router.get('/demo-accounts', getDemoAccounts);
 router.post('/switch-demo', switchUserDemo);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 export default router;

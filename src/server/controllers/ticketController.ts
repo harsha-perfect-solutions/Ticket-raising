@@ -44,9 +44,23 @@ export async function listTickets(req: AuthRequest, res: Response): Promise<void
 
     // 1. Role-Based Scoping
     if (req.user?.role === 'CUSTOMER') {
+      let customerId = req.user.customerId;
+      if (!customerId && req.user.userId) {
+        const cust = await prisma.customer.findFirst({
+          where: {
+            OR: [
+              { userId: req.user.userId },
+              { email: req.user.email },
+            ],
+          },
+        });
+        if (cust) customerId = cust.id;
+      }
+
       where.OR = [
-        ...(req.user.customerId ? [{ customerId: req.user.customerId }] : []),
+        ...(customerId ? [{ customerId }] : []),
         { createdById: req.user.userId },
+        ...(req.user.email ? [{ customer: { email: req.user.email } }] : []),
       ];
     } else if (req.user?.role === 'AGENT') {
       // Default: Agent can view tickets in their department or assigned to them
@@ -65,10 +79,22 @@ export async function listTickets(req: AuthRequest, res: Response): Promise<void
 
     // 2. Multi-field Filtering
     if (status) {
-      where.status = status as string;
+      const s = String(status).trim();
+      const lower = s.toLowerCase();
+      if (lower === 'active') {
+        where.status = { in: ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_FOR_CUSTOMER'] };
+      } else if (lower === 'open') {
+        where.status = { in: ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_FOR_CUSTOMER', 'ESCALATED', 'REOPENED'] };
+      } else if (lower === 'resolved' || lower === 'closed') {
+        where.status = { in: ['RESOLVED', 'CLOSED'] };
+      } else if (s.includes(',')) {
+        where.status = { in: s.split(',').map((x) => x.trim().toUpperCase()) };
+      } else {
+        where.status = s.toUpperCase();
+      }
     }
     if (priority) {
-      where.priority = priority as string;
+      where.priority = (priority as string).toUpperCase();
     }
     if (categoryId) {
       where.categoryId = categoryId as string;
@@ -80,10 +106,18 @@ export async function listTickets(req: AuthRequest, res: Response): Promise<void
       where.assignedAgentId = assignedAgentId === 'unassigned' ? null : (assignedAgentId as string);
     }
     if (source) {
-      where.source = source as string;
+      where.source = (source as string).toUpperCase();
     }
     if (slaStatus) {
-      where.slaStatus = slaStatus as string;
+      const sla = String(slaStatus).trim();
+      const lowerSla = sla.toLowerCase();
+      if (lowerSla === 'critical' || lowerSla === 'alert' || lowerSla === 'alerts' || lowerSla === 'warning') {
+        where.slaStatus = { in: ['WARNING_NEAR_BREACH', 'BREACHED'] };
+      } else if (sla.includes(',')) {
+        where.slaStatus = { in: sla.split(',').map((x) => x.trim().toUpperCase()) };
+      } else {
+        where.slaStatus = sla.toUpperCase();
+      }
     }
 
     // 3. Text Search (Ticket #, Subject, Customer Name, Email, Phone)
